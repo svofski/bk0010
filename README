@@ -1,0 +1,85 @@
+BK-0010 FPGA REPLICA
+~~~~~~~~~~~~~~~~~~~~
+
+This project is based upon work of many people. By using this project
+you abide to the intersection of all of the following licenses.
+
+POP-11 CPU is property of Tokai University, Shimuzu Lab., Japan.
+
+  Prof. Naohiko Shimizu
+  Dept. Communications Engineering, School of Information 
+  Technology and Electronics,
+  Tokai University
+  1117 Kitakaname, Hiratsuka-city, 259-1292
+  Japan
+  email : nshimizu _AT_ keyaki.cc.u-tokai.ac.jp
+  TEL:+81-463-58-1211(ext.4084)
+  FAX:+81-463-58-8320 	
+  http://shimizu-lab.dt.u-tokai.ac.jp/pop11.html
+
+CPU Arithemtic-Logical Unit, Instruction decoder, original BK-0010 base 
+logic are written by Alex Freed and used with permission. 
+  http://mirrow.com/FPGApple
+
+DE1 adaptation, bug fixes, peripheral addons, subsequent code changes 
+and maintenance by Viacheslav Slavinsky, http://sensi.org/~svo
+
+See further copyright notices.
+
+
+
+POP-11 CPU COPYRIGHT NOTICE
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Copyright (c) Yoshihiro Iida, Tokai University, Shimizu Lab., Japan.
+(http://shimizu-lab.dt.u-tokai.ac.jp)
+This software is the property of Tokai University, Shimizu Lab., Japan.
+
+The POP-11 is free set of files; you can use it, redistribute it
+and/or modify it under the following terms:
+
+1. You are not allowed to remove or modify this copyright notice
+   and License paragraphs, even if parts of the software is used.
+2. The improvements and/or extentions you make SHALL be available
+   for the community under THIS license, source code included.
+   Improvements or extentions, including adaptions to new architectures/languages,
+   SHALL be reported and transmitted to Tokai University, Shimizu Lab., Japan.
+3. You must cause the modified files to carry prominent notices stating
+   that you changed the files, what you did and the date of changes.
+4. You may NOT distribute this set of files under another license without
+   explisit permission from Tokai University, Shimizu Lab., Japan.
+5. This set of files is free, and distributed in the hope that it will be
+   useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+   You SHALL NOT use this software unless you accept to carry all
+   risk and cost of defects or limitations.
+
+
+
+BK-0010 COPYRIGHT NOTICE
+~~~~~~~~~~~~~~~~~~~~~~~~
+Copyright (c) 2008  Viacheslav Slavinsky
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, 
+are permitted provided that the following conditions are met:
+
+	Redistributions of source code must retain the above copyright notice, this 
+	list of conditions and the following disclaimer.
+
+	Redistributions in binary form must reproduce the above copyright notice, 
+	this list of conditions and the following disclaimer in the documentation 
+	and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
