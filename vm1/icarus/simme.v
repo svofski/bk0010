@@ -69,7 +69,7 @@ always @*
             cpu_d_in <= ram1[cpu_a_o/2];
          end else begin
             cpu_d_in <= {8'h0, ~cpu_a_o[0] ? ram1[cpu_a_o/2][7:0] : ram1[cpu_a_o/2][15:8]};
-            $display("rdbt @%o = %o", cpu_a_o, {8'h0, ~cpu_a_o[0] ? ram1[cpu_a_o/2][7:0] : ram1[cpu_a_o/2][15:8]});
+            //$display("rdbt @%o = %o", cpu_a_o, {8'h0, ~cpu_a_o[0] ? ram1[cpu_a_o/2][7:0] : ram1[cpu_a_o/2][15:8]});
          end
     1'b1:   cpu_d_in <= ram2[(cpu_a_o-32768)/2];
     endcase
@@ -84,10 +84,14 @@ always @*
                     else
                         ram1[cpu_a_o/2][15:8] <= cpu_d_o[7:0];
                         
-                    #1 $display("wtbt %o ram @%o=%o", cpu_d_o[7:0], cpu_a_o, ram1[cpu_a_o/2]);     
+                    //#1 $display("wtbt %o ram @%o=%o", cpu_d_o[7:0], cpu_a_o, ram1[cpu_a_o/2]);     
                     end
              
-            1'b1:   $display("boo!");
+            1'b1:   begin
+                    if (cpu_a_o == 'o177566) begin
+                    if (cpu_d_o[7:0] != 'h0e) $write("%c",cpu_d_o[7:0]);
+                    end
+                    end
             endcase
         end else begin
             case (cpu_a_o[15])
@@ -97,13 +101,13 @@ always @*
         end
     end
     
-//always @(posedge m_clock) begin: _handshake
-//    if (cpu_sync) 
-//        cpu_rply <= 1'b1;
-//    else
-//        cpu_rply <= 1'b0;
-//end
-always @* cpu_rply <= cpu_sync;
+always @(negedge m_clock) begin: _handshake
+    if (cpu_sync) 
+        cpu_rply <= 1'b1;
+    else
+        cpu_rply <= 1'b0;
+end
+//always @* cpu_rply <= cpu_sync;
     
 
 wire cpu_sync, cpu_rd, cpu_we, cpu_byte, cpu_bsy, cpu_init, cpu_ifetch;
@@ -149,19 +153,22 @@ top top(
         for (i = 0; i < 8; i = i + 1) begin
             $display("   %o: %o", i*2, ram1[i]);
         end
-        $finish;
+        //$finish;
     end
   end
 
+  always @(negedge m_clock) begin
+    if (cpu_ifetch && cpu_rd && cpu_a_o == 'o016742)  $display("  (pass #%d)", ram1['o406/2]);
+  end
 
 
 
   initial begin
     $display("BM1 simulation begins");
-    disp = 1;
+    disp = 0;
     
-    #(STEP*20000) begin
-        $display("end by stepcount @#177776=%o", ram2[16383]);
+    #(STEP*60000) begin
+        $display("\nend by step limit @#177776=%o", ram2[16383]);
         $finish;
     end
   end
