@@ -57,7 +57,9 @@ output  reg 		mbyte;
 input 				idc_cco, idc_bra, idc_nof, idc_rsd, idc_dop, idc_sop, idc_unused;
 output	reg			initq;
 
-output		[7:0]	test = state;
+output		[7:0]	test;
+
+assign test = state;
 
 parameter [5:0]	BOOT_0 = 0,
 				FS_IF0 = 1,
@@ -410,7 +412,7 @@ always @(posedge clk or negedge reset_n) begin
 					
 					idcop[`dreset]: begin initq <= 1'b1; state <= FS_IF0; end
 
-					idcop[`dhalt]: begin `dp(`BUSERR); state <= TRAP_SVC; end // should be `dp(`HALT)?
+					idcop[`dhalt]: begin `dp(`BUSERR); state <= TRAP_SVC; end // this will trap to 4 in VM1 (originally `dp(`HALT))
 
 					idcop[`diwait]: if (irq_in) state <= FS_IF0; // ? not TRAP_IRQ?
 								
@@ -528,7 +530,11 @@ always @(posedge clk or negedge reset_n) begin
 									// gruuu..
 									case (state)
 									EX_0: begin
-											`dp(`SPALU1); `dp(`OFS6ALU2); 
+									        // now this is *really* wrong
+									        // all manuals indicate that SP = SP + 2x(arg)
+									        // but VM1 tests seem to require it to be SP = PC + 2x(arg)
+									        // hence `dp(`PCALU1)
+											`dp(`PCALU1); `dp(`OFS6ALU2); 
 											`dp(`ADD); `dp(`ALUSP);
 											`dp(`FPPC);
 											state <= EX_1;

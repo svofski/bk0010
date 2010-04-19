@@ -7,6 +7,8 @@
 // ========================================================
 // LSI-11 ALU
 // --------------------------------------------------------
+// April 19, 2010: svo: rol/ror output V = C^N, where C and N are as set after the operation
+//                      sxt bit mask 0110 (V is cleared)
 
 module adder(A, B, CI, SUM, CO, VO); 
    input  CI; 
@@ -49,7 +51,9 @@ endmodule
 module myalu(in1,in2,ni,ci,mbyte,final_result,ccmask,final_flags, 
          add, adc,sub,sbc,inc2,dec2, inc,dec, clr,
          com,neg,tst,ror,rol,asr,asl,sxt,mov,cmp,
-         bit,bic,bis,exor,swab,cc);
+         bit,bic,bis,exor,swab,
+         cc                                         // mystery output, never used
+         );
    
    input [15:0] in1;
    input [15:0] in2;
@@ -59,9 +63,9 @@ module myalu(in1,in2,ni,ci,mbyte,final_result,ccmask,final_flags,
     
    output [3:0] final_flags;
    output [3:0] ccmask;
+   
    output   cc;
  
-
    output [15:0] final_result;   
 
    reg [15:0]   X;
@@ -84,9 +88,9 @@ module myalu(in1,in2,ni,ci,mbyte,final_result,ccmask,final_flags,
    adder8 adder8(X[7:0],Y[7:0],_ci, adder_8_result, co8,v8);
 //(add|adc|sub|sbc|clr|com|neg|test|ror|rol|asr|asl|cmp)? 4'hf:
    assign ccmask = (inc2|dec2)? 4'b0000:
-      (sxt)? 4'b0100:
+      (sxt)? 4'b0110:
       (inc | dec | mov|bit|bic|bis )? 4'b1110:
-      (exor )? 4'b1100:
+      (exor )? 4'b1110:
        4'b1111; // all the rest
 
    assign cc = (add| adc|sub|sbc|inc|dec| clr|com|neg|
@@ -144,22 +148,22 @@ module myalu(in1,in2,ni,ci,mbyte,final_result,ccmask,final_flags,
         ror: begin
                 if(mbyte) begin
                     res = {8'b0, ci, in2[7:1]};
-                    xflags = {res[7], zero8, ci^in2[0],in2[0]};
+                    xflags = {res[7], zero8, res[7]^in2[0],in2[0]}; // nzvc
                 end
                 else begin
                     res = {ci, in2[15:1]};
-                    xflags = {res[15], zero16, ci^in2[0],in2[0]};           
+                    xflags = {res[15], zero16, res[15]^in2[0],in2[0]};           
                 end
             end
             
         rol: begin
                 if(mbyte) begin
                     res = {8'b0, in2[6:0], ci};
-                    xflags = { res[7],zero8, ci^in2[7],in2[7]};
+                    xflags = {res[7], zero8, res[7]^in2[7], in2[7]};
                  end
                  else begin
                     res = { in2[14:0],ci};
-                    xflags = { res[15],zero16, ci^in2[15],in2[15]};         
+                    xflags = { res[15],zero16, res[15]^in2[15],in2[15]};         
                  end
             end
             
@@ -190,7 +194,8 @@ module myalu(in1,in2,ni,ci,mbyte,final_result,ccmask,final_flags,
                     res = 16'hffff;
                 else
                     res = 16'b0;
-                xflags = { 1'b0,~ni,2'b0};
+                //xflags = { 1'b0,~ni,2'b0};
+                xflags = {ni, ~ni, 1'b0, ci};
             end
             
         mov: begin

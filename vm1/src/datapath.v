@@ -25,8 +25,12 @@ output			taken;
 
 output [15:0]	PC;
 output [15:0]	ALU1, SRC, DST;
-output [15:0]	ALUOUT = alu_out;
+output [15:0]	ALUOUT;
 output [15:0] 	Rtest;
+
+
+assign ALUOUT = alu_out;
+
 
 reg	 [15:0]	R[0:7];
 
@@ -59,7 +63,7 @@ assign Rtest = 'o177777;
 
 reg taken; // latch
 
-always //@(ctrl[`CCTAKEN])
+always @* //@(ctrl[`CCTAKEN])
     taken = 	( ({OPC_BYTE,OPC[10:9]}==0)                             )|
 				( ({OPC_BYTE,OPC[10:9]}==1) & (~OPC[8] ^ fz )           )|
 				( ({OPC_BYTE,OPC[10:9]}==2) & (~OPC[8] ^ (fn^fv) )      )|
@@ -71,7 +75,7 @@ always //@(ctrl[`CCTAKEN])
 
 
 // = ALU1
-always case (1'b1) // synopsys parallel_case 
+always @* case (1'b1) // synopsys parallel_case 
 	ctrl[`PCALU1]:		ALU1 <= PC;
 	ctrl[`SPALU1]:		ALU1 <= SP;
 	ctrl[`DSTALU1]:		ALU1 <= DST;
@@ -82,7 +86,7 @@ always case (1'b1) // synopsys parallel_case
 	endcase
 
 // = ALU2
-always case (1'b1) // synopsys parallel_case
+always @* case (1'b1) // synopsys parallel_case
 	ctrl[`DSTALU2]: ALU2 <= DST;
 	ctrl[`SRCALU2]: ALU2 <= SRC;
 	ctrl[`OFS8ALU2]: ALU2 <= { {7{opcode[7]}}, opcode[7:0], 1'b0};
@@ -91,7 +95,7 @@ always case (1'b1) // synopsys parallel_case
 	endcase
 	
 // = REGsel	
-always 
+always @*
 	case (1'b1) // synopsys parallel_case
 	ctrl[`REGSEL]: 	REGsel <= R[OPC[2:0]];
 	ctrl[`REGSEL2]:	REGsel <= R[OPC[8:6]];
@@ -99,7 +103,7 @@ always
 	endcase
 
 // = REGin
-always case (1'b1) // synopsys parallel_case
+always @* case (1'b1) // synopsys parallel_case
 	ctrl[`ALUREG]:	REGin <= alu_out;
 	ctrl[`DSTREG]:	REGin <= DST;
 	ctrl[`SRCREG]:	REGin <= SRC;
@@ -110,7 +114,7 @@ always case (1'b1) // synopsys parallel_case
 	endcase
 
 // = dba
-always case (1'b1) // synopsys parallel_case
+always @* case (1'b1) // synopsys parallel_case
 	ctrl[`DBAPC]:	dba <= PC;
 	ctrl[`DBASP]:	dba <= SP;
 	ctrl[`DBADST]:	dba <= DST;
@@ -120,22 +124,23 @@ always case (1'b1) // synopsys parallel_case
 	endcase
 
 // = dbo
-always case (1'b1) // synopsys parallel_case
+always @* case (1'b1) // synopsys parallel_case
 	ctrl[`DBOSEL]:	dbo <= REGsel;
 	ctrl[`DBODST]:	dbo <= DST;
 	ctrl[`DBOSRC]:	dbo <= SRC;
 	ctrl[`DBOADR]:	dbo <= ADR;	
 	default:		dbo <= 16'b0; // unsure
 	endcase
-
+	
 // @ opcode
 always @(posedge clk or negedge reset_n) 
 	if (!reset_n) {OPC_BYTE,OPC} <= 16'b0;
 	else if (ce) begin
+	    //$display("dbi:%o OPC:%o (%x,%x,%x)->", dbi, OPC, ctrl[`SETOPC], ctrl[`ODDREG], ctrl[`CHANGE_OPR]);
 		case (1'b1) // synopsys parallel_case 
-		ctrl[`SETOPC]:		OPC <= dbi[14:0];
-		ctrl[`ODDREG]:    	OPC <= {OPC[14:7],~OPC[6],OPC[5:0]};
-		ctrl[`CHANGE_OPR]:	OPC <= {OPC[14:12],OPC[5:0],OPC[11:6]};	 
+		ctrl[`SETOPC]:		OPC <= dbi[14:0];                       
+		ctrl[`ODDREG]:    	OPC <= {OPC[14:7],~OPC[6],OPC[5:0]};          
+		ctrl[`CHANGE_OPR]:	OPC <= {OPC[14:12],OPC[5:0],OPC[11:6]};	      
 		endcase
 		
 		case (1'b1) // synopsys parallel_case
@@ -149,6 +154,17 @@ always @(posedge clk or negedge reset_n)
 // @ R, SP, PC = xx
 always @(posedge clk or negedge reset_n)
 	if (~reset_n) begin
+`ifdef SIM
+        R[0] = 0;
+        R[1] = 0;
+        R[2] = 0;
+        R[3] = 0;
+        R[4] = 0;
+        R[5] = 0;
+        R[6] = 0;
+        R[7] = 0;
+`endif		
+
 `ifdef TESTBENCH
 		R[5] = 'o040032; // for simulation purposes
 `endif
@@ -164,6 +180,7 @@ always @(posedge clk or negedge reset_n)
 		if (ctrl[`DBIFP])	R[5] <= dbi;
 		if (ctrl[`SETREG])	R[OPC[2:0]] <= REGin;
 		if (ctrl[`SETREG2]) R[OPC[8:6]] <= REGin;
+		
 	end
 	
 	
@@ -242,6 +259,9 @@ always @(posedge clk) if (ce)
 	ctrl[`SPL]:	priority <= OPC[2:0];
 	endcase
 
+always @(posedge clk) if (ce) 
+    if (ctrl[`CCSET]) $display("CCSET: %x %x %x %x <- %x", OPC[3], OPC[2], OPC[1], OPC[0], OPC[4]);
+
 //assign alucc = alu_ccout; //ctrl[`CCGET] ? alu_ccout : 4'b0;
 
 reg [3:0] alucc;
@@ -291,8 +311,8 @@ myalu ALU(
 	.bic (ctrl[`BIC ]),
 	.bis (ctrl[`BIS ]),
 	.exor(ctrl[`EXOR]),
-	.swab(ctrl[`SWAB]),
-	.cc  (ctrl[`CC  ])
+	.swab(ctrl[`SWAB])
+	//.cc  (ctrl[`CC  ])
 	);         
                
 endmodule

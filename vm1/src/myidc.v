@@ -132,7 +132,7 @@ module idc (
 				//idc_opc[15:6] == 'o 1064	||  MFPS
 				idc_opc[15:9] == 'o 076		||
 				(idc_opc[15:9] == 'o 075 && idc_opc[8:6] != 0) ||
-				idc_opc[15:5] == {7'o750,1'b1} ||
+				idc_opc[15:5] == {9'o750,1'b1} || 
 				idc_opc[15:9] == 'o 007 ||
 				idc_opc[15:3] == 'o 00021 ||
 				idc_opc[15:3] == 'o 00022 ||

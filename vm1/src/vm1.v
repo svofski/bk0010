@@ -115,12 +115,17 @@ output  [15:0]  ALU1;
 output  [15:0]  ALUOUT, SRC, DST;
 output	[7:0]	test_control;
 output	[7:0]	test_bus;
-output  [3:0]	ALUCC = alucc;
-output 	[7:0]	idccat = {idc_unused,idc_cco,idc_bra,idc_nof,idc_rsd,idc_dop,idc_sop};
+output  [3:0]	ALUCC;
+output 	[7:0]	idccat;
 output	[15:0]	psw;
-output			taken = dp_taken;
-output	[15:0]	OPCODE = opcode;
+output			taken;
+output	[15:0]	OPCODE;
 output	[15:0]	Rtest;
+
+assign ALUCC = alucc;
+assign idccat = {idc_unused,idc_cco,idc_bra,idc_nof,idc_rsd,idc_dop,idc_sop};
+assign taken = dp_taken;
+assign OPCODE = opcode;
 
 `ifdef TESTBENCH
 ram1024x16 burn(
@@ -316,7 +321,7 @@ assign berror = 0;
 //assign berror = bsync && timeout == 0;
 //assign berror = error;
 
-always bwtbt <= b;
+always @* bwtbt <= b;
 
 reg [5:0] timeout;
 
