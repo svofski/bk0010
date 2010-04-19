@@ -164,6 +164,8 @@ always @(posedge clk or negedge reset_n)
         R[6] = 0;
         R[7] = 0;
 `endif		
+        priority <= 0;
+        trapbit <= 0;
 
 `ifdef TESTBENCH
 		R[5] = 'o040032; // for simulation purposes
@@ -225,6 +227,9 @@ always @(posedge clk or negedge reset_n)
 		ctrl[`IOT]:		SRC <= `TRAP_IOT;
 		ctrl[`SVC]:		SRC <= `TRAP_SVC;
 		endcase
+		
+		//if (ctrl[`DBISRC]) $display("SRC<=%o (DBISRC)", dbi);
+		//if (ctrl[`ALUDST]) $display("DST<=%o (ALUDST) ALU1=%o ALU2=%o mov=%o\nctrl=%b", alu_out, ALU1, ALU2, ctrl[`MOV], ctrl);
 	
 	end
 
@@ -258,9 +263,6 @@ always @(posedge clk) if (ce)
 		end
 	ctrl[`SPL]:	priority <= OPC[2:0];
 	endcase
-
-always @(posedge clk) if (ce) 
-    if (ctrl[`CCSET]) $display("CCSET: %x %x %x %x <- %x", OPC[3], OPC[2], OPC[1], OPC[0], OPC[4]);
 
 //assign alucc = alu_ccout; //ctrl[`CCGET] ? alu_ccout : 4'b0;
 

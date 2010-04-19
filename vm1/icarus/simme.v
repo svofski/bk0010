@@ -64,23 +64,46 @@ integer    disp, fp, memf, error, i;
 // make ram access for the CPU
 always @*
     case (cpu_a_o[15]) 
-    1'b0:   cpu_d_in <= ram1[cpu_a_o/2];
+    1'b0:
+        if (!cpu_byte) begin   
+            cpu_d_in <= ram1[cpu_a_o/2];
+         end else begin
+            cpu_d_in <= {8'h0, ~cpu_a_o[0] ? ram1[cpu_a_o/2][7:0] : ram1[cpu_a_o/2][15:8]};
+            $display("rdbt @%o = %o", cpu_a_o, {8'h0, ~cpu_a_o[0] ? ram1[cpu_a_o/2][7:0] : ram1[cpu_a_o/2][15:8]});
+         end
     1'b1:   cpu_d_in <= ram2[(cpu_a_o-32768)/2];
     endcase
 
 always @*
-    if (cpu_we) 
-        case (cpu_a_o[15])
-        1'b0:   ram1[cpu_a_o/2] <= cpu_d_o;
-        1'b1:   ram2[(cpu_a_o-32768)/2] <= cpu_d_o;
-        endcase
+    if (cpu_we) begin
+        if (cpu_byte) begin
+            case (cpu_a_o[15])
+            1'b0:   begin
+                    if (cpu_a_o[0] == 0)
+                        ram1[cpu_a_o/2][7:0] <= cpu_d_o[7:0];
+                    else
+                        ram1[cpu_a_o/2][15:8] <= cpu_d_o[7:0];
+                        
+                    #1 $display("wtbt %o ram @%o=%o", cpu_d_o[7:0], cpu_a_o, ram1[cpu_a_o/2]);     
+                    end
+             
+            1'b1:   $display("boo!");
+            endcase
+        end else begin
+            case (cpu_a_o[15])
+            1'b0:   ram1[cpu_a_o/2] <= cpu_d_o;
+            1'b1:   ram2[(cpu_a_o-32768)/2] <= cpu_d_o;
+            endcase
+        end
+    end
     
-always @(posedge m_clock) begin: _handshake
-    if (cpu_sync) 
-        cpu_rply <= 1'b1;
-    else
-        cpu_rply <= 1'b0;
-end
+//always @(posedge m_clock) begin: _handshake
+//    if (cpu_sync) 
+//        cpu_rply <= 1'b1;
+//    else
+//        cpu_rply <= 1'b0;
+//end
+always @* cpu_rply <= cpu_sync;
     
 
 wire cpu_sync, cpu_rd, cpu_we, cpu_byte, cpu_bsy, cpu_init, cpu_ifetch;
@@ -105,17 +128,18 @@ top top(
 
 
   // moo
-  always @(posedge m_clock & disp) begin
+  always @(negedge m_clock & disp) begin
     //t0 = top.cpu.cpu.rs232.sender.send_buf&8'h7f;
     //if(t0 == 8'h0d) t0 = 8'h0a;
     //$display("cpu_din:%x cpu_a:%x", cpu_d_in, cpu_a_o);
-    $display("pc:%o s/r:%x%x if0:%x rd:%x we:%x di:%o do:%o a:%o opc:%o s:%d R1-6:%o,%o,%o,%o %o %o", 
+    $display("pc:%o s/r:%x%x if0:%x r:%x w:%x di:%o do:%o a:%o opc:%o s:%d/%d/%d R1-6:%o,%o,%o,%o %o %o", 
                 top.cpu.PC, cpu_sync, cpu_rply, cpu_ifetch,
                 cpu_rd, cpu_we, 
                 cpu_d_in, cpu_d_o, cpu_a_o,
-                top.cpu.OPCODE, top.cpu.controlr.state, 
+                top.cpu.OPCODE, top.cpu.controlr.state, top.cpu.controlr.MODE, top.cpu.controlr.opsrcdst,
                 top.cpu.dp.R[1],top.cpu.dp.R[2],top.cpu.dp.R[3],
                 top.cpu.dp.R[4], top.cpu.dp.R[5],top.cpu.dp.R[6], 
+                //top.cpu.dp.psw,
                 //ram1[top.cpu.dp.R[6]/2]
                 //top.cpu.op_decoded
                 );
@@ -136,7 +160,7 @@ top top(
     $display("BM1 simulation begins");
     disp = 1;
     
-    #(STEP*10000) begin
+    #(STEP*20000) begin
         $display("end by stepcount @#177776=%o", ram2[16383]);
         $finish;
     end

@@ -195,7 +195,7 @@ always @(posedge clk or negedge reset_n) begin
 					end
 				end
 				
-				// direct register read
+				// direct register read (5)
 		FS_OF0:	begin
 					`dp(`REGSEL);
 					`dp(`SELSRC);
@@ -204,7 +204,7 @@ always @(posedge clk or negedge reset_n) begin
 					state <= FS_OF1;
 				end
 				
-				// Operand Fetch #1
+				// Operand Fetch #1 (6)
 		FS_OF1: begin
 					case (MODE) 
 					2'b 00: begin
@@ -259,8 +259,8 @@ always @(posedge clk or negedge reset_n) begin
 					endcase
 				end
 				
-				// Computes effective address in index mode
-		FS_OF2: begin
+				// Computes effective address in index mode (7)
+		FS_OF2: begin 
 				`dp(`REGSEL); `dp(`SELALU1); `dp(`ADD);
 				if (opsrcdst == SRC_OP) begin 
 					`dp(`SRCALU2); `dp(`ALUSRC);
@@ -272,7 +272,7 @@ always @(posedge clk or negedge reset_n) begin
 				state <= FS_OF3;
 				end
 				
-				// First step memory read. Used by Auto-inc,dec,index mode.
+				// First step memory read. Used by Auto-inc,dec,index mode. (8)
 		FS_OF3: begin
 				mbyte <= INDR ? 1'b0 : BYTE;
 				//mbyte <= !INDR;
@@ -568,6 +568,7 @@ always @(posedge clk or negedge reset_n) begin
                                   `dp(`ALUCC);
                                   state <= WB_0;
                                   end
+
                     //default:      begin
                     //              `dp(`ERR);
                     //              state <= TRAP_SVC;

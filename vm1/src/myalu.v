@@ -89,7 +89,7 @@ module myalu(in1,in2,ni,ci,mbyte,final_result,ccmask,final_flags,
 //(add|adc|sub|sbc|clr|com|neg|test|ror|rol|asr|asl|cmp)? 4'hf:
    assign ccmask = (inc2|dec2)? 4'b0000:
       (sxt)? 4'b0110:
-      (inc | dec | mov|bit|bic|bis )? 4'b1110:
+      (inc|dec|mov|bit|bic|bis )? 4'b1110:
       (exor )? 4'b1110:
        4'b1111; // all the rest
 
