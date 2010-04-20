@@ -132,14 +132,6 @@ always @(posedge clk or negedge reset_n) begin
 					state <= FS_IF0;
 				end
 		FS_IF0:	begin 
-					// fixme: should be _before_ if0
-					
-				    // initiate instruction fetch
-					//mbyte <= 0;
-					//ifetch <= 1'b1;
-					//`dp(`DBAPC);
-					//dati <= 1'b1;
-					
 					if (~TRACE & irq_in) 
 						state <= TRAP_IRQ;
 					else if (TRACE) begin 
@@ -147,14 +139,12 @@ always @(posedge clk or negedge reset_n) begin
 					end 
 					else begin
 						if (ierror) begin
-							dati <= 1'b0;
 							state <= TRAP_SVC;
 							`dp(`BUSERR);
 						end else if (dati & ready) begin
 						    // accept data (opcode)
 							state <= FS_ID0;
 							
-							//dati <= 1'b0;
 							`dp(`PCALU1);
 							`dp(`INC2);
 							`dp(`ALUPC);
@@ -254,7 +244,6 @@ always @(posedge clk or negedge reset_n) begin
 								state <= TRAP_SVC;		
 								`dp(`BUSERR);
 							end else if (dati & ready) begin
-								dati <= 1'b0;
 								`dp(`PCALU1);	`dp(`INC2); `dp(`ALUPC);
 								`dp(opsrcdst == SRC_OP ? `DBISRC : `DBIDST);
 								state <= FS_OF2;
@@ -287,8 +276,6 @@ always @(posedge clk or negedge reset_n) begin
 					state <= TRAP_SVC;
 					`dp(`BUSERR);
 				end else if (dati & ready) begin
-					dati <= 0;
-					
 					if (opsrcdst == DST_OP) begin
 						`dp(`DBIDST); `dp(`DSTADR);
 					end else begin
@@ -318,12 +305,10 @@ always @(posedge clk or negedge reset_n) begin
 				
 				if (opsrcdst == DST_OP) begin
 					if (ierror) begin
-						dati <= 1'b0;
 						`dp(`BUSERR);
 						state <= TRAP_SVC;
 					end 
 					else if (dati & ready) begin
-						dati <= 1'b0;
 						`dp(`DSTADR); `dp(`DBIDST);
 						state <= EX_0;
 					end else begin
@@ -334,12 +319,10 @@ always @(posedge clk or negedge reset_n) begin
 					end
 				end else begin		// SRC
 					if (ierror) begin
-						dati <= 1'b0;
 						`dp(`BUSERR);
 						state <= TRAP_SVC;
 					end
 					else if (dati & ready) begin
-						dati <= 1'b0;
 						`dp(`SRCADR); `dp(`DBISRC);
 						`dp(`CHANGE_OPR);
 						opsrcdst <= DST_OP;
@@ -450,18 +433,17 @@ always @(posedge clk or negedge reset_n) begin
 											state <= EX_1;
 										  end
 									EX_1: begin
-											mbyte <= 1'b0;
-											dato <= 1'b1;
-											`dp(`REGSEL2); `dp(`DBOSEL); `dp(`DBASP);
 											if (ierror) begin
-												dato <= 1'b0;
 												`dp(`BUSERR);
 												state <= TRAP_SVC;
 											end 
-											else if (ready) begin
-												dato <= 1'b0;
+											else if (ready & dato) begin
 												`dp(`PCREG); `dp(`SETREG2);
 												state <= EX_2;
+											end else begin
+    											mbyte <= 1'b0;
+    											dato <= 1'b1;
+    											`dp(`REGSEL2); `dp(`DBOSEL); `dp(`DBASP);
 											end
 										  end
 									EX_2: begin
@@ -480,12 +462,10 @@ always @(posedge clk or negedge reset_n) begin
 									
 									EX_1: begin
 											if (ierror) begin
-												dati <= 1'b0;
 												`dp(`BUSERR);
 												state <= TRAP_SVC;
 											end 
 											else if (dati & ready) begin
-												dati <= 1'b0;
 												`dp(`DBIREG); `dp(`SETREG);
 												`dp(`SPALU1); `dp(`INC2); `dp(`ALUSP);
 												state <= FS_IF0;
@@ -503,12 +483,10 @@ always @(posedge clk or negedge reset_n) begin
 									case (state)
 									EX_0: begin
 											if (ierror) begin
-												dati <= 1'b0;
 												`dp(`BUSERR);
 												state <= TRAP_SVC;
 											end
 											else if (dati & ready) begin
-												dati <= 1'b0;
 												`dp(`DBIPC);
 												`dp(`SPALU1); `dp(`INC2); `dp(`ALUSP);
 												state <= EX_1;
@@ -520,12 +498,10 @@ always @(posedge clk or negedge reset_n) begin
 										  end
 									EX_1: begin
 											if (ierror) begin
-												dati <= 1'b0;
 												`dp(`BUSERR);
 												state <= TRAP_SVC;
 											end
 											else if (dati & ready) begin
-												dati <= 1'b0;
 												`dp(`DBIPS);
 												`dp(`SPALU1); `dp(`INC2); `dp(`ALUSP);
 												state <= FS_IF0;
@@ -542,10 +518,7 @@ always @(posedge clk or negedge reset_n) begin
 									// gruuu..
 									case (state)
 									EX_0: begin
-									        // now this is *really* wrong
-									        // all manuals indicate that SP = SP + 2x(arg)
-									        // but VM1 tests seem to require it to be SP = PC + 2x(arg)
-									        // hence `dp(`PCALU1)
+									        // SP = PC + 2x(arg)
 											`dp(`PCALU1); `dp(`OFS6ALU2); 
 											`dp(`ADD); `dp(`ALUSP);
 											`dp(`FPPC);
@@ -553,12 +526,10 @@ always @(posedge clk or negedge reset_n) begin
 										  end
 									EX_1: begin
 											if (ierror) begin
-												dati <= 1'b0;
 												`dp(`BUSERR);
 												state <= TRAP_SVC;
 											end 
 											else if (dati & ready) begin
-												dati <= 1'b0;
 												`dp(`DBIFP);
 												`dp(`SPALU1); `dp(`INC2); `dp(`ALUSP);
 												state <= FS_IF0;
@@ -593,26 +564,23 @@ always @(posedge clk or negedge reset_n) begin
 					//state <= FS_IF0;
 					
 					if (dp_opcode[5:3] != 0) begin
-						dato <= 1'b1;
-						mbyte <= BYTE;
-						`dp(`DBODST); `dp(`DBAADR);
-						
-						if (ierror|ready) dato <= 1'b0;
-						
 						if (ierror) begin
 							`dp(`BUSERR);
 							state <= TRAP_SVC;
 						end
-						else 
-							if (ready) begin
-								if (TRACE) begin
-									`dp(`BPT); state <= TRAP_SVC;
-								end 
-								else if (irq_in) 
-									state <= TRAP_IRQ;
-								else
-									state <= FS_IF0;
-							end
+						else if (ready & dato) begin
+							if (TRACE) begin
+								`dp(`BPT); state <= TRAP_SVC;
+							end 
+							else if (irq_in) 
+								state <= TRAP_IRQ;
+							else
+								state <= FS_IF0;
+						end else begin
+    						dato <= 1'b1;
+    						mbyte <= BYTE;
+    						`dp(`DBODST); `dp(`DBAADR);
+					    end
 					end 
 					else begin
 						`dp(`DSTREG); `dp(`SETREG);
@@ -644,7 +612,6 @@ always @(posedge clk or negedge reset_n) begin
 				
 		TRAP_1:	begin
 					if (ierror) begin
-						dati <= 1'b0;
 						`dp(`BUSERR);
 						state <= TRAP_SVC;
 						// becoming an hero.
@@ -653,7 +620,6 @@ always @(posedge clk or negedge reset_n) begin
 						// - if this is trap 4 => die to console mode
 						// not sure what VM1 is supposed to do here
 					end else if (dati & ready) begin
-						dati <= 1'b0;
 						`dp(`DBIPC);
 						`dp(`SRCALU1); `dp(`INC2); `dp(`ALUSRC);
 						state <= TRAP_2;
@@ -665,8 +631,6 @@ always @(posedge clk or negedge reset_n) begin
 				end
 				
 		TRAP_2: begin
-					if (ierror|ready) dati <= 1'b0;
-
 					if (ierror) begin
 						`dp(`BUSERR);
 						state <= TRAP_SVC;
@@ -682,27 +646,27 @@ always @(posedge clk or negedge reset_n) begin
 				end
 				
 		TRAP_3:	begin
-					`dp(`DBODST); `dp(`DBASP);
-					mbyte <= 1'b0;// Mr.Iida has BYTE here
-					dato <= 1'b1;
-					if (ierror|ready) dato <= 1'b0;
 					if (ierror) begin
 						`dp(`BUSERR);
 						state <= TRAP_SVC;
-					end else if (ready) begin
+					end else if (ready & dato) begin
 						`dp(`SPALU1); `dp(`DEC2); `dp(`ALUSP);
 						state <= TRAP_4;
+					end else begin
+    					`dp(`DBODST); `dp(`DBASP);
+    					mbyte <= 1'b0;// Mr.Iida has BYTE here
+    					dato <= 1'b1;
 					end
 				end
 		TRAP_4: begin
-					`dp(`DBOADR); `dp(`DBASP);
-					dato <= 1'b1;
-					if (ierror|ready) dato <= 1'b0;
 					if (ierror) begin
 						`dp(`BUSERR);
 						state <= TRAP_SVC;
-					end else if (ready) begin
+					end else if (ready & dato) begin
 						state <= FS_IF0;
+					end else begin
+    					`dp(`DBOADR); `dp(`DBASP);
+    					dato <= 1'b1;
 					end
 				end
 		endcase // state

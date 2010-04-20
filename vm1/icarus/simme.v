@@ -1,5 +1,4 @@
-
-`define SIM
+`define MEDRPLY
 
 module simme;
 
@@ -20,6 +19,10 @@ reg  [7:0]  tmpbyte;
 
 integer    disp, fp, memf, error, i;
 
+  initial begin
+    disp = 0;
+  end
+
   // Generate reset
   initial begin
     mreset_n = 1'b0;
@@ -33,6 +36,7 @@ integer    disp, fp, memf, error, i;
   end
   
   initial begin 
+    $write("100000: ");
     memf = $fopen("asmtests/test1.pdp", "rb");
     error = 1;
     for (i = 0; error == 1; i = i + 1) begin
@@ -40,8 +44,9 @@ integer    disp, fp, memf, error, i;
         ram2[i][7:0] = tmpbyte;
         error = $fread(tmpbyte, memf);
         ram2[i][15:8] = tmpbyte;
-        $display("ram[i]=%o", ram2[i]);
+        $write("%o ", ram2[i]);
     end
+    $display();
     $fclose(memf);
     
     memf = $fopen("bktests/791401", "rb");
@@ -54,10 +59,9 @@ integer    disp, fp, memf, error, i;
     end
     $fclose(memf);
 
-
-    
-    $display("initialized ram 000000 with %d bytes", error);
-    for (i = 'o100; i < 'o100+16; i = i + 1) $display("%o", ram1[i]);
+    $write("initialized ram 000000 with %d words\n000200: ", i);
+    for (i = 'o100; i < 'o100+4; i = i + 1) $write("%o ", ram1[i]);
+    $display();
   end
 
 
@@ -100,14 +104,40 @@ always @*
             endcase
         end
     end
+
+`ifdef SLOWRPLY
+
+reg [2:0] rplycnt;
+reg syncsamp;
+always @(posedge m_clock) begin: _handshake_slow
+    syncsamp <= cpu_sync;
     
+    if (~syncsamp & cpu_sync) begin
+        rplycnt <= 5;
+    end else if (rplycnt != 0) 
+        rplycnt <= rplycnt - 1;
+end
+
+always @* cpu_rply <= rplycnt[1];  
+
+`else 
+`ifdef MEDRPLY
+
 always @(posedge m_clock) begin: _handshake
     if (cpu_sync) 
         cpu_rply <= 1'b1;
     else
         cpu_rply <= 1'b0;
 end
-//always @* cpu_rply <= cpu_sync;
+
+`else
+
+always @* cpu_rply <= cpu_sync;
+
+`endif
+`endif   
+
+
     
 
 wire cpu_sync, cpu_rd, cpu_we, cpu_byte, cpu_bsy, cpu_init, cpu_ifetch;
@@ -132,7 +162,8 @@ top top(
 
 
   // moo
-  always @(negedge m_clock & disp) begin
+  always @(negedge m_clock) 
+    if (disp) begin
     //t0 = top.cpu.cpu.rs232.sender.send_buf&8'h7f;
     //if(t0 == 8'h0d) t0 = 8'h0a;
     //$display("cpu_din:%x cpu_a:%x", cpu_d_in, cpu_a_o);
@@ -158,7 +189,7 @@ top top(
   end
 
   always @(negedge m_clock) begin
-    if (cpu_ifetch && cpu_rd && cpu_a_o == 'o016742)  $display("  (pass #%d)", ram1['o406/2]);
+    if (cpu_ifetch && cpu_rd && cpu_a_o == 'o016742)  $display("  (pass #%d time=%d)", ram1['o406/2], $time);
   end
 
 
