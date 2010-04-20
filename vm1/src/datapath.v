@@ -10,8 +10,8 @@
 
 `include "instr.h"
 
-module datapath(clk, ce, reset_n, dbi, dbo, dba, opcode, psw, ctrl, alucc, taken, PC, ALU1, ALUOUT, SRC, DST, Rtest);
-input			clk, ce, reset_n;
+module datapath(clk, ce, clkdbi, reset_n, dbi, dbo, dba, opcode, psw, ctrl, alucc, taken, PC, ALU1, ALUOUT, SRC, DST, Rtest);
+input			clk, ce, clkdbi, reset_n;
 input 	[15:0]	dbi;
 output reg[15:0]dbo;
 output reg[15:0]dba;
@@ -63,6 +63,11 @@ assign Rtest = 'o177777;
 
 reg taken; // latch
 
+reg [15:0] dbi_r;
+
+always @(posedge clkdbi) 
+    dbi_r <= dbi;
+
 always @* //@(ctrl[`CCTAKEN])
     taken = 	( ({OPC_BYTE,OPC[10:9]}==0)                             )|
 				( ({OPC_BYTE,OPC[10:9]}==1) & (~OPC[8] ^ fz )           )|
@@ -109,7 +114,7 @@ always @* case (1'b1) // synopsys parallel_case
 	ctrl[`SRCREG]:	REGin <= SRC;
 	ctrl[`ADRREG]:	REGin <= ADR;
 	ctrl[`PCREG]:	REGin <= R[7];
-	ctrl[`DBIREG]:	REGin <= dbi;
+	ctrl[`DBIREG]:	REGin <= dbi_r;
 	//default:		REGin <= 16'b0; // unsure
 	endcase
 
@@ -136,16 +141,16 @@ always @* case (1'b1) // synopsys parallel_case
 always @(posedge clk or negedge reset_n) 
 	if (!reset_n) {OPC_BYTE,OPC} <= 16'b0;
 	else if (ce) begin
-	    //$display("dbi:%o OPC:%o (%x,%x,%x)->", dbi, OPC, ctrl[`SETOPC], ctrl[`ODDREG], ctrl[`CHANGE_OPR]);
+	    //if (ctrl[`SETOPC]) $display("set OPC to %o->", dbi_r);
 		case (1'b1) // synopsys parallel_case 
-		ctrl[`SETOPC]:		OPC <= dbi[14:0];                       
+		ctrl[`SETOPC]:		OPC <= dbi_r[14:0];                       
 		ctrl[`ODDREG]:    	OPC <= {OPC[14:7],~OPC[6],OPC[5:0]};          
 		ctrl[`CHANGE_OPR]:	OPC <= {OPC[14:12],OPC[5:0],OPC[11:6]};	      
 		endcase
 		
 		case (1'b1) // synopsys parallel_case
 		ctrl[`RESET_BYTE]: 	OPC_BYTE <= 1'b0;
-		ctrl[`SETOPC]: 		OPC_BYTE <= dbi[15];
+		ctrl[`SETOPC]: 		OPC_BYTE <= dbi_r[15];
 		endcase
 	end
 
@@ -173,13 +178,13 @@ always @(posedge clk or negedge reset_n)
 	end else 
 	if (ce) begin
 		if (ctrl[`ALUPC]) 	R[7] <= alu_out;
-		if (ctrl[`DBIPC]) 	R[7] <= dbi;
+		if (ctrl[`DBIPC]) 	R[7] <= dbi_r;
 		if (ctrl[`SETPCROM])R[7] <= 16'o 100000;
 		if (ctrl[`FPPC])	R[7] <= R[5];
 		if (ctrl[`SELPC])	R[7] <= REGsel;
 		if (ctrl[`ADRPC])	R[7] <= ADR;
 		if (ctrl[`ALUSP])	R[6] <= alu_out;
-		if (ctrl[`DBIFP])	R[5] <= dbi;
+		if (ctrl[`DBIFP])	R[5] <= dbi_r;
 		if (ctrl[`SETREG])	R[OPC[2:0]] <= REGin;
 		if (ctrl[`SETREG2]) R[OPC[8:6]] <= REGin;
 		
@@ -207,7 +212,7 @@ always @(posedge clk or negedge reset_n)
 			end
 			
 		case (1'b1) // synopsis parallel_case
-		ctrl[`DBIDST]:	DST <= dbi;
+		ctrl[`DBIDST]:	DST <= dbi_r;
 		ctrl[`ALUDST]:	DST <= alu_out;
 		ctrl[`ALUDSTB]:	DST <= OPC_BYTE ? {DST[15:8],alu_out[7:0]} : alu_out;
 		ctrl[`SELDST]:	DST <= REGsel;
@@ -215,7 +220,7 @@ always @(posedge clk or negedge reset_n)
 		endcase
 		
 		case (1'b1) // synopsis parallel_case
-		ctrl[`DBISRC]:  SRC <= dbi;
+		ctrl[`DBISRC]:  SRC <= dbi_r;
 		ctrl[`ALUSRC]:	SRC <= alu_out;
 		ctrl[`SELSRC]:	SRC <= REGsel;
 		
@@ -234,7 +239,7 @@ always @(posedge clk) if (ce)
 	case (1'b1) // synopsys parallel_case
 	ctrl[`DBIPS], 	
 	ctrl[`VECTORPS]:
-		{priority,trapbit,fn,fz,fv,fc} <= dbi[7:0];
+		{priority,trapbit,fn,fz,fv,fc} <= dbi_r[7:0];
 		
 	ctrl[`DSTPSW]:
         {priority,fn,fz,fv,fc} <= {DST[7:5],DST[3:0]};

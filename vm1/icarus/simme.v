@@ -101,13 +101,13 @@ always @*
         end
     end
     
-//always @(posedge m_clock) begin: _handshake
-//    if (cpu_sync) 
-//        cpu_rply <= 1'b1;
-//    else
-//        cpu_rply <= 1'b0;
-//end
-always @* cpu_rply <= cpu_sync;
+always @(posedge m_clock) begin: _handshake
+    if (cpu_sync) 
+        cpu_rply <= 1'b1;
+    else
+        cpu_rply <= 1'b0;
+end
+//always @* cpu_rply <= cpu_sync;
     
 
 wire cpu_sync, cpu_rd, cpu_we, cpu_byte, cpu_bsy, cpu_init, cpu_ifetch;

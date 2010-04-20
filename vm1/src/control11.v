@@ -111,7 +111,6 @@ wire		TRACE= psw[4];
 
 reg		rsub;
 
-
 // fetch task
 always @(posedge clk or negedge reset_n) begin
 	if (!reset_n) begin
@@ -135,32 +134,38 @@ always @(posedge clk or negedge reset_n) begin
 		FS_IF0:	begin 
 					// fixme: should be _before_ if0
 					
+				    // initiate instruction fetch
+					//mbyte <= 0;
+					//ifetch <= 1'b1;
+					//`dp(`DBAPC);
+					//dati <= 1'b1;
+					
 					if (~TRACE & irq_in) 
 						state <= TRAP_IRQ;
 					else if (TRACE) begin 
 						`dp(`BPT);	state <= TRAP_SVC; 
 					end 
 					else begin
-					    //-- if (!ready || dati) begin
-						mbyte <= 0;
-						ifetch <= 1'b1;
-						`dp(`DBAPC);
-						dati <= 1;
-						//--end
-
 						if (ierror) begin
 							dati <= 1'b0;
 							state <= TRAP_SVC;
 							`dp(`BUSERR);
-						end else if (ifetch & ready) begin
+						end else if (dati & ready) begin
+						    // accept data (opcode)
 							state <= FS_ID0;
 							
-							dati <= 1'b0;
+							//dati <= 1'b0;
 							`dp(`PCALU1);
 							`dp(`INC2);
 							`dp(`ALUPC);
 							`dp(`SETOPC);
-						end 
+						end  else begin
+						    // initiate instruction fetch
+    						mbyte <= 0;
+    						ifetch <= 1'b1;
+    						`dp(`DBAPC);
+    						dati <= 1'b1;
+						end
 					end
 				end
 				
@@ -188,6 +193,8 @@ always @(posedge clk or negedge reset_n) begin
 						opsrcdst <= DST_OP;
 						state <= FS_OF1;
 					end
+					
+					//$display("id0: %x %x %x %x", idc_bra, idc_sop, idc_dop, idc_unused);
 					
 					if (idcop[`dadd]) begin
 						rsub <= 1'b0;
@@ -243,19 +250,19 @@ always @(posedge clk or negedge reset_n) begin
 							end
 							
 					2'b 11: begin
-							`dp(`DBAPC);
-							dati <= 1;
-							mbyte <= 0;
-
 							if (ierror) begin
 								state <= TRAP_SVC;		
 								`dp(`BUSERR);
-							end else if (ready) begin
-								dati <= 0;
+							end else if (dati & ready) begin
+								dati <= 1'b0;
 								`dp(`PCALU1);	`dp(`INC2); `dp(`ALUPC);
 								`dp(opsrcdst == SRC_OP ? `DBISRC : `DBIDST);
 								state <= FS_OF2;
-							end 
+							end else begin
+    							`dp(`DBAPC);
+    							dati <= 1'b1;
+    							mbyte <= 0;
+							end
 							
 							end
 					endcase
@@ -276,17 +283,10 @@ always @(posedge clk or negedge reset_n) begin
 				
 				// First step memory read. Used by Auto-inc,dec,index mode. (8)
 		FS_OF3: begin
-				mbyte <= INDR ? 1'b0 : BYTE;
-				//mbyte <= !INDR;
-				//mbyte <= BYTE;
-				
-				dati <= 1'b1;
-				`dp(opsrcdst == SRC_OP ? `DBASRC : `DBADST);
-
 				if (ierror) begin
 					state <= TRAP_SVC;
 					`dp(`BUSERR);
-				end else if (ready) begin
+				end else if (dati & ready) begin
 					dati <= 0;
 					
 					if (opsrcdst == DST_OP) begin
@@ -304,7 +304,12 @@ always @(posedge clk or negedge reset_n) begin
 						opsrcdst <= DST_OP;
 						state <= FS_OF1;
 					end
-				end 
+				end else begin
+				    // initiate memory read
+    				mbyte <= INDR ? 1'b0 : BYTE;
+    				dati <= 1'b1;
+    				`dp(opsrcdst == SRC_OP ? `DBASRC : `DBADST);
+				end
 				
 				end
 				
@@ -312,35 +317,37 @@ always @(posedge clk or negedge reset_n) begin
 		FS_OF4:	begin
 				
 				if (opsrcdst == DST_OP) begin
-					mbyte <= BYTE;
-					dati <= 1'b1;
-					`dp(`DBADST); 
 					if (ierror) begin
 						dati <= 1'b0;
 						`dp(`BUSERR);
 						state <= TRAP_SVC;
 					end 
-					else if (ready) begin
+					else if (dati & ready) begin
 						dati <= 1'b0;
 						`dp(`DSTADR); `dp(`DBIDST);
 						state <= EX_0;
+					end else begin
+					    // initiate memory read
+    					mbyte <= BYTE;
+    					dati <= 1'b1;
+    					`dp(`DBADST); 
 					end
 				end else begin		// SRC
-					mbyte <= BYTE;
-					`dp(`DBASRC);
-					dati <= 1'b1;
-					
 					if (ierror) begin
 						dati <= 1'b0;
 						`dp(`BUSERR);
 						state <= TRAP_SVC;
 					end
-					else if (ready) begin
+					else if (dati & ready) begin
 						dati <= 1'b0;
 						`dp(`SRCADR); `dp(`DBISRC);
 						`dp(`CHANGE_OPR);
 						opsrcdst <= DST_OP;
 						state <= FS_OF1;
+					end else begin
+    					mbyte <= BYTE;
+    					`dp(`DBASRC);
+    					dati <= 1'b1;
 					end
 				end
 				
@@ -472,19 +479,20 @@ always @(posedge clk or negedge reset_n) begin
 										  end
 									
 									EX_1: begin
-											mbyte <= 1'b0;
-											dati <= 1'b1;
-											`dp(`DBASP);
 											if (ierror) begin
 												dati <= 1'b0;
 												`dp(`BUSERR);
 												state <= TRAP_SVC;
 											end 
-											else if (ready) begin
+											else if (dati & ready) begin
 												dati <= 1'b0;
 												`dp(`DBIREG); `dp(`SETREG);
 												`dp(`SPALU1); `dp(`INC2); `dp(`ALUSP);
 												state <= FS_IF0;
+											end else begin
+    											mbyte <= 1'b0;
+    											dati <= 1'b1;
+    											`dp(`DBASP);
 											end
 										  end
 									endcase
@@ -494,35 +502,37 @@ always @(posedge clk or negedge reset_n) begin
 					idcop[`drti]: begin
 									case (state)
 									EX_0: begin
-											mbyte <= 1'b0;
-											dati <= 1'b1;
-											`dp(`DBASP);
 											if (ierror) begin
 												dati <= 1'b0;
 												`dp(`BUSERR);
 												state <= TRAP_SVC;
 											end
-											else if (ready) begin
+											else if (dati & ready) begin
 												dati <= 1'b0;
 												`dp(`DBIPC);
 												`dp(`SPALU1); `dp(`INC2); `dp(`ALUSP);
 												state <= EX_1;
+											end else begin
+    											mbyte <= 1'b0;
+    											dati <= 1'b1;
+    											`dp(`DBASP);
 											end
 										  end
 									EX_1: begin
-											mbyte <= 1'b0;
-											dati <= 1'b1;
-											`dp(`DBASP);
 											if (ierror) begin
 												dati <= 1'b0;
 												`dp(`BUSERR);
 												state <= TRAP_SVC;
 											end
-											else if (ready) begin
+											else if (dati & ready) begin
 												dati <= 1'b0;
 												`dp(`DBIPS);
 												`dp(`SPALU1); `dp(`INC2); `dp(`ALUSP);
 												state <= FS_IF0;
+											end else begin
+    											mbyte <= 1'b0;
+    											dati <= 1'b1;
+    											`dp(`DBASP);
 											end
 										  end
 									endcase
@@ -542,19 +552,20 @@ always @(posedge clk or negedge reset_n) begin
 											state <= EX_1;
 										  end
 									EX_1: begin
-											mbyte <= 1'b0;
-											dati <= 1'b1;
-											`dp(`DBASP);
 											if (ierror) begin
 												dati <= 1'b0;
 												`dp(`BUSERR);
 												state <= TRAP_SVC;
 											end 
-											else if (ready) begin
+											else if (dati & ready) begin
 												dati <= 1'b0;
 												`dp(`DBIFP);
 												`dp(`SPALU1); `dp(`INC2); `dp(`ALUSP);
 												state <= FS_IF0;
+											end else begin
+    											mbyte <= 1'b0;
+    											dati <= 1'b1;
+    											`dp(`DBASP);
 											end
 										  end
 									endcase
@@ -632,9 +643,6 @@ always @(posedge clk or negedge reset_n) begin
 				  end
 				
 		TRAP_1:	begin
-					mbyte <= 1'b0;
-					dati <= 1'b1;
-					`dp(`DBASRC);	// trap vector
 					if (ierror) begin
 						dati <= 1'b0;
 						`dp(`BUSERR);
@@ -644,26 +652,32 @@ always @(posedge clk or negedge reset_n) begin
 						// - if this is IRQ or any trap but bus error => trap to 4
 						// - if this is trap 4 => die to console mode
 						// not sure what VM1 is supposed to do here
-					end else if (ready) begin
+					end else if (dati & ready) begin
 						dati <= 1'b0;
 						`dp(`DBIPC);
 						`dp(`SRCALU1); `dp(`INC2); `dp(`ALUSRC);
 						state <= TRAP_2;
+					end else begin
+    					mbyte <= 1'b0;
+    					dati <= 1'b1;
+    					`dp(`DBASRC);	// trap vector
 					end
 				end
 				
 		TRAP_2: begin
-					mbyte <= 1'b0;
-					dati <= 1'b1;
 					if (ierror|ready) dati <= 1'b0;
-					`dp(`DBASRC); 	// vector+2/priority
+
 					if (ierror) begin
 						`dp(`BUSERR);
 						state <= TRAP_SVC;
-					end else if (ready) begin
+					end else if (dati & ready) begin
 						`dp(`VECTORPS);
 						`dp(`SPALU1); `dp(`DEC2); `dp(`ALUSP);
 						state <= TRAP_3;
+					end else begin
+    					mbyte <= 1'b0;
+    					dati <= 1'b1;
+    					`dp(`DBASRC); 	// vector+2/priority
 					end
 				end
 				

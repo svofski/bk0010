@@ -230,6 +230,7 @@ idc idcr(
 
 datapath dp(
 	.clk(dp_clk),
+	.clkdbi(clk),
 	.ce(dp_ce),
 	.reset_n(reset_n),
 	.dbi(data_i), 
@@ -315,16 +316,22 @@ parameter [4:0]
 
 reg [6:0] state;
 
-wire bbsy = bsync;
+assign bbsy = bsync;
 
 assign berror = 0;
-//assign berror = bsync && timeout == 0;
-//assign berror = error;
-
-always @* bwtbt <= b;
 
 reg [5:0] timeout;
 
+always @* bwtbt <= b;
+
+always @* begin
+    bsync <= dati|dato;
+    bdin <= dati;
+    bdout <= dato;
+end
+
+
+/*
 always @* begin
 	if (~reset_n | ~(dati|dato)) begin
 		bsync <= 1'b0;
@@ -360,6 +367,7 @@ always @(posedge clk or negedge reset_n) begin
 		if (bsync && timeout != 0) timeout <= timeout - 1'b 1;
 	end
 end
+*/
 
 /*
 always @(posedge clk or negedge reset_n) begin
