@@ -101,13 +101,13 @@ always @*
         end
     end
     
-always @(negedge m_clock) begin: _handshake
-    if (cpu_sync) 
-        cpu_rply <= 1'b1;
-    else
-        cpu_rply <= 1'b0;
-end
-//always @* cpu_rply <= cpu_sync;
+//always @(posedge m_clock) begin: _handshake
+//    if (cpu_sync) 
+//        cpu_rply <= 1'b1;
+//    else
+//        cpu_rply <= 1'b0;
+//end
+always @* cpu_rply <= cpu_sync;
     
 
 wire cpu_sync, cpu_rd, cpu_we, cpu_byte, cpu_bsy, cpu_init, cpu_ifetch;
@@ -167,7 +167,7 @@ top top(
     $display("BM1 simulation begins");
     disp = 0;
     
-    #(STEP*60000) begin
+    #(STEP*40000) begin
         $display("\nend by step limit @#177776=%o", ram2[16383]);
         $finish;
     end

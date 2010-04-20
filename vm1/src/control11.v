@@ -141,16 +141,18 @@ always @(posedge clk or negedge reset_n) begin
 						`dp(`BPT);	state <= TRAP_SVC; 
 					end 
 					else begin
+					    //-- if (!ready || dati) begin
 						mbyte <= 0;
 						ifetch <= 1'b1;
 						`dp(`DBAPC);
 						dati <= 1;
+						//--end
 
 						if (ierror) begin
 							dati <= 1'b0;
 							state <= TRAP_SVC;
 							`dp(`BUSERR);
-						end else if (ready) begin
+						end else if (ifetch & ready) begin
 							state <= FS_ID0;
 							
 							dati <= 1'b0;

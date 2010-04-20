@@ -227,10 +227,6 @@ always @(posedge clk or negedge reset_n)
 		ctrl[`IOT]:		SRC <= `TRAP_IOT;
 		ctrl[`SVC]:		SRC <= `TRAP_SVC;
 		endcase
-		
-		//if (ctrl[`DBISRC]) $display("SRC<=%o (DBISRC)", dbi);
-		//if (ctrl[`ALUDST]) $display("DST<=%o (ALUDST) ALU1=%o ALU2=%o mov=%o\nctrl=%b", alu_out, ALU1, ALU2, ctrl[`MOV], ctrl);
-	
 	end
 
 // @ ps
