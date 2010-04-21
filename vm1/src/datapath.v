@@ -169,9 +169,6 @@ always @(posedge clk or negedge reset_n)
         R[6] = 0;
         R[7] = 0;
 `endif		
-        priority <= 0;
-        trapbit <= 0;
-
 `ifdef TESTBENCH
 		R[5] = 'o040032; // for simulation purposes
 `endif
@@ -235,35 +232,40 @@ always @(posedge clk or negedge reset_n)
 	end
 
 // @ ps
-always @(posedge clk) if (ce) 
-	case (1'b1) // synopsys parallel_case
-	ctrl[`DBIPS], 	
-	ctrl[`VECTORPS]:
-		{priority,trapbit,fn,fz,fv,fc} <= dbi_r[7:0];
+always @(posedge clk) 
+	if (~reset_n) begin
+        priority <= 0;
+        trapbit <= 0;
+	end else if (ce) begin
+		case (1'b1) // synopsys parallel_case
+		ctrl[`DBIPS], 	
+		ctrl[`VECTORPS]:
+			{priority,trapbit,fn,fz,fv,fc} <= dbi_r[7:0];
+			
+		ctrl[`DSTPSW]:
+			{priority,fn,fz,fv,fc} <= {DST[7:5],DST[3:0]};
+			
+		ctrl[`TSTSRC]:
+			{fn,fz} <= {SRC[15],~|SRC};
 		
-	ctrl[`DSTPSW]:
-        {priority,fn,fz,fv,fc} <= {DST[7:5],DST[3:0]};
-		
-	ctrl[`TSTSRC]:
-		{fn,fz} <= {SRC[15],~|SRC};
-	
-	ctrl[`TSTSRCADR]:
-		fz <= ~|SRC && ~|ADR;
-		
-	ctrl[`ALUCC]: begin
-			if (alu_ccmask[3]) 	fn <= alu_ccout[3];
-			if (alu_ccmask[2]) 	fz <= alu_ccout[2];
-			if (alu_ccmask[1]) 	fv <= alu_ccout[1];
-			if (alu_ccmask[0])	fc <= alu_ccout[0];
-		end
-	ctrl[`CCSET]: begin
-			if (OPC[3])	fn <= OPC[4];
-			if (OPC[2]) fz <= OPC[4];
-			if (OPC[1]) fv <= OPC[4];
-			if (OPC[0]) fc <= OPC[4];
-		end
-	ctrl[`SPL]:	priority <= OPC[2:0];
-	endcase
+		ctrl[`TSTSRCADR]:
+			fz <= ~|SRC && ~|ADR;
+			
+		ctrl[`ALUCC]: begin
+				if (alu_ccmask[3]) 	fn <= alu_ccout[3];
+				if (alu_ccmask[2]) 	fz <= alu_ccout[2];
+				if (alu_ccmask[1]) 	fv <= alu_ccout[1];
+				if (alu_ccmask[0])	fc <= alu_ccout[0];
+			end
+		ctrl[`CCSET]: begin
+				if (OPC[3])	fn <= OPC[4];
+				if (OPC[2]) fz <= OPC[4];
+				if (OPC[1]) fv <= OPC[4];
+				if (OPC[0]) fc <= OPC[4];
+			end
+		ctrl[`SPL]:	priority <= OPC[2:0];
+		endcase
+	end
 
 //assign alucc = alu_ccout; //ctrl[`CCGET] ? alu_ccout : 4'b0;
 

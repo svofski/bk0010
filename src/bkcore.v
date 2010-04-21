@@ -113,7 +113,7 @@ wire mDOUT;
 
 wire [15:0] cpu_data_o;
 
-vm1 cpu(.clk(m_clock), .ce(1'b1/*cpu_rdy*/),
+vm1 cpu(.clk(m_clock), .ce(1'b1),
         .reset_n(~p_reset),
 		.IFETCH(_cpu_inst),
         .data_i(cpu_dati),
