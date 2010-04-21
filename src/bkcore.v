@@ -147,7 +147,7 @@ wire cpu_sync;
 
 reg cpu_rplylatch;
 reg syncsample;
-always @(negedge m_clock) begin // was negedge hmm
+always @(posedge m_clock) begin // was negedge hmm
 	if (p_reset) begin
 		cpu_rplylatch <= 0;
 		cpu_rply <= 0;

@@ -403,7 +403,7 @@ always @(posedge clk or negedge reset_n) begin
 
 					idcop[`dhalt]: begin `dp(`BUSERR); state <= TRAP_SVC; end // this will trap to 4 in VM1 (originally `dp(`HALT))
 
-					idcop[`diwait]: if (irq_in) state <= FS_IF0; // ? not TRAP_IRQ?
+					idcop[`diwait]: if (irq_in) state <= FS_IF0; 
 								
 					
 					idcop[`dsob]: begin
@@ -594,11 +594,20 @@ always @(posedge clk or negedge reset_n) begin
 		
 			// it's a trap!
 		TRAP_IRQ: begin
-					iako <= 1'b1; // ?
-					`dp(`DBISRC);
-					`dp(`RESET_BYTE);
-					`dp(`SAVE_STAT);
-					state <= TRAP_1;
+					iako <= 1'b1; 
+					if (ierror) begin
+						`dp(`BUSERR);
+						state <= TRAP_SVC;
+					end else if (dati & ready) begin
+						`dp(`DBISRC);			// read interrupt vector from dbi
+						state <= TRAP_1;
+					end else begin
+						mbyte <= 1'b0;
+						dati <= 1'b1;
+						iako <= 1'b1;
+						`dp(`RESET_BYTE);
+						`dp(`SAVE_STAT);
+					end
 				  end
 		
 		TRAP_SVC: begin
@@ -608,6 +617,8 @@ always @(posedge clk or negedge reset_n) begin
 				  end
 				
 		TRAP_1:	begin
+					//iako <= 1'b1; 
+					
 					if (ierror) begin
 						`dp(`BUSERR);
 						state <= TRAP_SVC;
