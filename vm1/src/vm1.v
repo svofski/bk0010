@@ -194,6 +194,9 @@ wire	dp_clk = clk;
 
 wire	error_to_control = error_bus | error_i;
 
+
+wire    virq_masked = ~psw[7] & VIRQ;
+
 control11 controlr(
 	.clk(clk), 
 	.ce(ctl_ce),
@@ -206,7 +209,7 @@ control11 controlr(
 	.mbyte(controlr_byte),
 	.ifetch(IFETCH),
 	.psw(psw),
-	.irq_in(VIRQ),
+	.irq_in(virq_masked),
 	.iako(IAKO),
 	.dp_taken(dp_taken),
 	.dp_alucc(alucc),

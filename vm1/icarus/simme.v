@@ -17,10 +17,14 @@ reg  [15:0] ram1[0:16383];
 reg  [15:0] ram2[0:16383];
 reg  [7:0]  tmpbyte;
 
+reg         txirq;
+wire        iako;
+
 integer    disp, fp, memf, error, i;
 
   initial begin
     disp = 0;
+    txirq = 0;
   end
 
   // Generate reset
@@ -49,7 +53,7 @@ integer    disp, fp, memf, error, i;
     $display();
     $fclose(memf);
     
-    memf = $fopen("bktests/791401", "rb");
+    memf = $fopen("bktests/791404", "rb");
     error = 1;
     for (i = 0; error == 1; i = i + 1) begin
         error = $fread(tmpbyte, memf);
@@ -70,7 +74,7 @@ always @*
     case (cpu_a_o[15]) 
     1'b0:
         if (!cpu_byte) begin   
-            cpu_d_in <= ram1[cpu_a_o/2];
+            cpu_d_in <=  (txirq & iako & cpu_rd) ? 'o64 : ram1[cpu_a_o/2];
          end else begin
             cpu_d_in <= {8'h0, ~cpu_a_o[0] ? ram1[cpu_a_o/2][7:0] : ram1[cpu_a_o/2][15:8]};
             //$display("rdbt @%o = %o", cpu_a_o, {8'h0, ~cpu_a_o[0] ? ram1[cpu_a_o/2][7:0] : ram1[cpu_a_o/2][15:8]});
@@ -78,32 +82,42 @@ always @*
     1'b1:   cpu_d_in <= ram2[(cpu_a_o-32768)/2];
     endcase
 
-always @*
+always @* begin
     if (cpu_we) begin
-        if (cpu_byte) begin
-            case (cpu_a_o[15])
-            1'b0:   begin
-                    if (cpu_a_o[0] == 0)
-                        ram1[cpu_a_o/2][7:0] <= cpu_d_o[7:0];
-                    else
-                        ram1[cpu_a_o/2][15:8] <= cpu_d_o[7:0];
-                        
-                    //#1 $display("wtbt %o ram @%o=%o", cpu_d_o[7:0], cpu_a_o, ram1[cpu_a_o/2]);     
+        case (cpu_a_o[15])
+        1'b0:   begin
+                    if (cpu_byte) begin
+                        if (cpu_a_o[0] == 0)
+                            ram1[cpu_a_o/2][7:0] <= cpu_d_o[7:0];
+                        else
+                            ram1[cpu_a_o/2][15:8] <= cpu_d_o[7:0];
                     end
-             
-            1'b1:   begin
+                    else begin
+                        ram1[cpu_a_o/2] <= cpu_d_o;
+                    end
+                end
+            
+        1'b1:   begin
                     if (cpu_a_o == 'o177566) begin
-                    if (cpu_d_o[7:0] != 'h0e) $write("%c",cpu_d_o[7:0]);
+                        if (cpu_d_o[7:0] != 'h0e) $write("%c",cpu_d_o[7:0]);
+                    end 
+                    else 
+                    if (cpu_a_o == 'o177564) begin
+                        txirq <= cpu_d_o[6];
+                    end else begin
+                        if (cpu_byte) begin
+                        end else begin
+                            ram2[(cpu_a_o-32768)/2] <= cpu_d_o;
+                        end
                     end
-                    end
-            endcase
-        end else begin
-            case (cpu_a_o[15])
-            1'b0:   ram1[cpu_a_o/2] <= cpu_d_o;
-            1'b1:   ram2[(cpu_a_o-32768)/2] <= cpu_d_o;
-            endcase
-        end
+                end
+        endcase
     end
+    
+    if (iako & cpu_rd) begin
+    #(STEP*8) txirq <= 0;
+    end
+end
 
 `ifdef SLOWRPLY
 
@@ -143,22 +157,26 @@ always @* cpu_rply <= cpu_sync;
 wire cpu_sync, cpu_rd, cpu_we, cpu_byte, cpu_bsy, cpu_init, cpu_ifetch;
 reg  cpu_rply;
 
-top top(
-    .mclk(m_clock),
-    .mreset_n(mreset_n),
-    .data_i(cpu_d_in),
-    .data_o(cpu_d_o),
-    .addr_o(cpu_a_o),
-    
-    .sync_o(cpu_sync),
-    .rply_i(cpu_rply),
-    .din_o(cpu_rd),
-    .dout_o(cpu_we),
-    .wtbt_o(cpu_byte),
-    .bsy_o(cpu_bsy),
-    .init_o(cpu_init),
-    .ifetch_o(cpu_ifetch)
-    );
+
+vm1 cpu
+          (.clk(m_clock), 
+           .ce(1),
+           .reset_n(mreset_n),
+           .data_i(cpu_d_in),
+           .data_o(cpu_d_o),
+           .addr_o(cpu_a_o),
+           .SYNC(cpu_sync),        // o: address set
+           .RPLY(cpu_rply),        // i: reply to DIN or DOUT
+           .DIN(cpu_rd),         // o: data in flag
+           .DOUT(cpu_we),        // o: data out flag
+           .WTBT(cpu_byte),        // o: byteio op/odd address
+           .BSY(cpu_bsy),         // o: CPU usurps bus
+           .INIT(cpu_init),        // o: peripheral INIT
+		   .IFETCH(cpu_ifetch),		// o: indicates IF0
+		   .VIRQ(txirq),
+		   .IAKO(iako)
+           );
+
 
 
   // moo
@@ -167,22 +185,23 @@ top top(
     //t0 = top.cpu.cpu.rs232.sender.send_buf&8'h7f;
     //if(t0 == 8'h0d) t0 = 8'h0a;
     //$display("cpu_din:%x cpu_a:%x", cpu_d_in, cpu_a_o);
-    $display("pc:%o s/r:%x%x if0:%x r:%x w:%x di:%o do:%o a:%o opc:%o s:%d/%d/%d R1-6:%o,%o,%o,%o %o %o", 
-                top.cpu.PC, cpu_sync, cpu_rply, cpu_ifetch,
+    $display("pc:%o s/r:%x%x if0:%x r:%x w:%x di:%o do:%o a:%o opc:%o s:%d/%d/%d/%s R1-6:%o,%o,%o,%o %o %o", 
+                cpu.PC, cpu_sync, cpu_rply, cpu_ifetch,
                 cpu_rd, cpu_we, 
                 cpu_d_in, cpu_d_o, cpu_a_o,
-                top.cpu.OPCODE, top.cpu.controlr.state, top.cpu.controlr.MODE, top.cpu.controlr.opsrcdst,
-                top.cpu.dp.R[1],top.cpu.dp.R[2],top.cpu.dp.R[3],
-                top.cpu.dp.R[4], top.cpu.dp.R[5],top.cpu.dp.R[6], 
+                cpu.OPCODE, cpu.controlr.state, cpu.controlr.MODE, cpu.controlr.opsrcdst, 
+                cpu.psw[4] ? "t":"_",
+                cpu.dp.R[1], cpu.dp.R[2], cpu.dp.R[3],
+                cpu.dp.R[4], cpu.dp.R[5], cpu.dp.R[6], 
                 //top.cpu.dp.psw,
                 //ram1[top.cpu.dp.R[6]/2]
                 //top.cpu.op_decoded
                 );
                     
-    if(top.cpu.controlr.state == top.cpu.controlr.TRAP_SVC) begin
-        $display("TRAP_SVC @#177776=%o", ram2[16383]);
-        for (i = 0; i < 8; i = i + 1) begin
-            $display("   %o: %o", i*2, ram1[i]);
+    if(cpu.controlr.state == cpu.controlr.TRAP_SVC) begin
+        $display("TRAP_SVC");
+        for (i = 0; i < 32; i = i + 2) begin
+            $display("   %o: %o %o", i*2, ram1[i], ram1[i+1]);
         end
         //$finish;
     end
@@ -196,9 +215,9 @@ top top(
 
   initial begin
     $display("BM1 simulation begins");
-    disp = 0;
+    disp = 1;
     
-    #(STEP*40000) begin
+    #(STEP*80000) begin
         $display("\nend by step limit @#177776=%o", ram2[16383]);
         $finish;
     end
