@@ -121,7 +121,6 @@ always @(posedge clk or negedge reset_n) begin
 	else if (ce) begin
 		{dati,dato} <= 0;
 		dpcmd <= 128'b0;
-		//dpcmd[`DBAPC] <= 1'bx;
 		initq <= 1'b0;
 		iako <= 1'b0;
 		ifetch <= 1'b0;
@@ -183,8 +182,6 @@ always @(posedge clk or negedge reset_n) begin
 						opsrcdst <= DST_OP;
 						state <= FS_OF1;
 					end
-					
-					//$display("id0: %x %x %x %x", idc_bra, idc_sop, idc_dop, idc_unused);
 					
 					if (idcop[`dadd]) begin
 						rsub <= 1'b0;
