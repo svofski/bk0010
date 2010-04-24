@@ -187,8 +187,12 @@ wire    cedbi = 1;
 `else
 
 reg 	ticktock;
-always @(posedge clk)
-	if (ce) ticktock <= ~ticktock;
+always @(posedge clk or negedge reset_n) begin
+    if (~reset_n) 
+        ticktock <= 0;
+    else if (ce) 
+        ticktock <= ~ticktock;
+end
 	
 wire	ctl_ce = ce & ticktock, 
 		dp_ce =  ce & ~ticktock;

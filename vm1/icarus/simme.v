@@ -1,4 +1,4 @@
-`define MEDRPLY
+`define NOSLOWRPLY
 
 module simme;
 
@@ -17,14 +17,19 @@ reg  [15:0] ram1[0:16383];
 reg  [15:0] ram2[0:16383];
 reg  [7:0]  tmpbyte;
 
-reg         txirq;
+reg  [7:0]  tx_control;
+reg  [7:0]  rx_control;
 wire        iako;
+wire        txirq = tx_control[6];
+
+reg         buserr;
 
 integer    disp, fp, memf, error, i;
 
   initial begin
     disp = 0;
-    txirq = 0;
+    tx_control = 'o200;
+    buserr = 0;
   end
 
   // Generate reset
@@ -40,8 +45,14 @@ integer    disp, fp, memf, error, i;
   end
   
   initial begin 
+  
+    for (i = 0; i < 16384; i = i + 1) begin
+        ram1[i] = 0;
+        ram2[i] = 0;
+    end
+  
     $write("100000: ");
-    memf = $fopen("asmtests/test1.pdp", "rb");
+    memf = $fopen("asmtests/felix6.pdp", "rb");
     error = 1;
     for (i = 0; error == 1; i = i + 1) begin
         error = $fread(tmpbyte, memf);
@@ -53,6 +64,8 @@ integer    disp, fp, memf, error, i;
     $display();
     $fclose(memf);
     
+    
+`ifdef VM1TESTS    
     memf = $fopen("bktests/791404", "rb");
     error = 1;
     for (i = 0; error == 1; i = i + 1) begin
@@ -66,6 +79,8 @@ integer    disp, fp, memf, error, i;
     $write("initialized ram 000000 with %d words\n000200: ", i);
     for (i = 'o100; i < 'o100+4; i = i + 1) $write("%o ", ram1[i]);
     $display();
+`endif
+    
   end
 
 
@@ -79,7 +94,13 @@ always @*
             cpu_d_in <= {8'h0, ~cpu_a_o[0] ? ram1[cpu_a_o/2][7:0] : ram1[cpu_a_o/2][15:8]};
             //$display("rdbt @%o = %o", cpu_a_o, {8'h0, ~cpu_a_o[0] ? ram1[cpu_a_o/2][7:0] : ram1[cpu_a_o/2][15:8]});
          end
-    1'b1:   cpu_d_in <= ram2[(cpu_a_o-32768)/2];
+    1'b1:   begin
+                case (cpu_a_o) 
+                    'o177564:   cpu_d_in <= tx_control;
+                    'o177560:   cpu_d_in <= rx_control;
+                    default:    cpu_d_in <= ram2[(cpu_a_o-32768)/2];
+                endcase
+            end
     endcase
 
 always @* begin
@@ -103,7 +124,8 @@ always @* begin
                     end 
                     else 
                     if (cpu_a_o == 'o177564) begin
-                        txirq <= cpu_d_o[6];
+                        tx_control <= cpu_d_o;
+                        #(STEP*16) tx_control[7] <= 1'b1;
                     end else begin
                         if (cpu_byte) begin
                         end else begin
@@ -115,9 +137,29 @@ always @* begin
     end
     
     if (iako & cpu_rd) begin
-    #(STEP*8) txirq <= 0;
+    #(STEP*8) tx_control[6] <= 0;
+    end
+    if (cpu_init) begin
+        tx_control <= 0;
+        rx_control <= 0;
     end
 end
+
+
+always @(posedge m_clock) begin
+    // simulate nonexistent address trap for test 791404
+    if (cpu_sync && cpu_a_o == 'o172000) begin
+        buserr <= 1;
+        #(STEP*2)   buserr <= 0;
+    end    
+
+    if (cpu_sync && cpu.PC == 'o012000 && cpu_a_o == 'o1 && cpu.OPCODE == 'o105720 && cpu.controlr.state == 8) begin
+        buserr <= 1;
+        #(STEP*2)   buserr <= 0;
+    end    
+end
+
+
 
 `ifdef SLOWRPLY
 
@@ -130,6 +172,7 @@ always @(posedge m_clock) begin: _handshake_slow
         rplycnt <= 5;
     end else if (rplycnt != 0) 
         rplycnt <= rplycnt - 1;
+                
 end
 
 always @* cpu_rply <= rplycnt[1];  
@@ -174,7 +217,8 @@ vm1 cpu
            .INIT(cpu_init),        // o: peripheral INIT
 		   .IFETCH(cpu_ifetch),		// o: indicates IF0
 		   .VIRQ(txirq),
-		   .IAKO(iako)
+		   .IAKO(iako),
+		   .error_i(buserr)
            );
 
 
@@ -185,11 +229,12 @@ vm1 cpu
     //t0 = top.cpu.cpu.rs232.sender.send_buf&8'h7f;
     //if(t0 == 8'h0d) t0 = 8'h0a;
     //$display("cpu_din:%x cpu_a:%x", cpu_d_in, cpu_a_o);
-    $display("pc:%o s/r:%x%x if0:%x r:%x w:%x di:%o do:%o a:%o opc:%o s:%d/%d/%d/%s R1-6:%o,%o,%o,%o %o %o", 
+    $display("pc:%o s/r:%x%x if0:%x %s%s di:%o do:%o a:%o opc:%o s:%d/%b/%s R1-6:%o,%o,%o,%o %o", 
                 cpu.PC, cpu_sync, cpu_rply, cpu_ifetch,
-                cpu_rd, cpu_we, 
+                cpu_rd?"R":" ", cpu_we?"W":" ", 
                 cpu_d_in, cpu_d_o, cpu_a_o,
-                cpu.OPCODE, cpu.controlr.state, cpu.controlr.MODE, cpu.controlr.opsrcdst, 
+                cpu.OPCODE, cpu.controlr.state, 
+                cpu.psw[3:0],
                 cpu.psw[4] ? "t":"_",
                 cpu.dp.R[1], cpu.dp.R[2], cpu.dp.R[3],
                 cpu.dp.R[4], cpu.dp.R[5], cpu.dp.R[6], 
@@ -203,7 +248,21 @@ vm1 cpu
         for (i = 0; i < 32; i = i + 2) begin
             $display("   %o: %o %o", i*2, ram1[i], ram1[i+1]);
         end
-        //$finish;
+        if (cpu.OPCODE == 0) begin
+            $display("HALT");
+            
+            $display("Registers:");
+            for (i = 0; i < 8; i = i + 1) begin
+                $write("%o ", cpu.dp.R[i]);
+            end
+            
+            $display("\nMemory:");
+            for (i = 'o1720; i <= 'o2000; i = i + 8) begin
+                $display("%o: %o %o %o %o", i, ram1[i/2], ram1[i/2+1],ram1[i/2+2],ram1[i/2+3]);
+            end
+            
+            $finish;
+        end
     end
   end
 

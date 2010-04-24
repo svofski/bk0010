@@ -361,7 +361,7 @@ always @(posedge clk or negedge reset_n) begin
                     // set datapath to execute decoded instruction
                     case (1'b 1) // synopsys parallel_case
                     idcop[`dclr]: begin `dp(`DSTALU1); `dp(`CLR); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
-                    idcop[`dcom]: begin    `dp(`DSTALU1); `dp(`COM); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
+                    idcop[`dcom]: begin `dp(`DSTALU1); `dp(`COM); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
                     idcop[`dinc]: begin `dp(`DSTALU1); `dp(`INC); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
                     idcop[`ddec]: begin `dp(`DSTALU1); `dp(`DEC); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
                     idcop[`dneg]: begin `dp(`DSTALU1); `dp(`NEG); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
