@@ -11,7 +11,17 @@
 
 `default_nettype none
 
-module bkcore(p_reset , m_clock ,cpu_rdy, wt , rd , in , out , adr , byte,
+module bkcore(
+ p_reset, 
+ m_clock,
+ ce,
+ cpu_rdy, 
+ wt, 
+ rd, 
+ in,
+ out, 
+ adr, 
+ byte,
  _cpu_inst, _cpu_adrs, kbd_data, kbd_available, kbd_ar2, read_kbd, roll_out, stopkey, keydown, tape_in, tape_out,
  testselect,
  redleds,
@@ -19,6 +29,7 @@ module bkcore(p_reset , m_clock ,cpu_rdy, wt , rd , in , out , adr , byte,
 
 input 			p_reset;
 input			m_clock;
+input           ce;
 output 	[15:0] 	_cpu_adrs;
 output 			_cpu_inst, read_kbd;
 input 			kbd_available;
@@ -116,7 +127,8 @@ wire mDOUT;
 
 wire [15:0] cpu_data_o;
 
-vm1 cpu(.clk(m_clock), .ce(1'b1),
+vm1 cpu(.clk(m_clock), 
+        .ce(ce),
         .reset_n(~p_reset),
 		.IFETCH(_cpu_inst),
         .data_i(cpu_dati),
@@ -129,16 +141,16 @@ vm1 cpu(.clk(m_clock), .ce(1'b1),
 		.SYNC(cpu_sync),
 		.RPLY(cpu_rply),
 
-        .DIN(_cpu_rd),         // o: data in
-        .DOUT(mDOUT),        // o: data out
-        .WTBT(_cpu_byte),        // o: byteio op/odd address
+        .DIN(_cpu_rd),          // o: data in
+        .DOUT(mDOUT),           // o: data out
+        .WTBT(_cpu_byte),       // o: byteio op/odd address
            
-        .VIRQ(_cpu_irq_in),        // i: vector interrupt request
-        .IRQ1(1'b0),        // i: console interrupt
-        .IRQ2(1'b0),        // i: trap to 0100
-        .IRQ3(1'b0),        // i: trap to 0270
+        .VIRQ(_cpu_irq_in),     // i: vector interrupt request
+        .IRQ1(1'b0),            // i: console interrupt
+        .IRQ2(1'b0),            // i: trap to 0100
+        .IRQ3(1'b0),            // i: trap to 0270
            
-        .IAKO(_cpu_int_ack),        // o: interrupt ack, DIN requests vector
+        .IAKO(_cpu_int_ack),    // o: interrupt ack, DIN requests vector
 		.test_control(test_control),
 		.test_bus(test_bus),
 		.OPCODE(cpu_opcode),
@@ -150,13 +162,13 @@ wire cpu_sync;
 
 reg cpu_rplylatch;
 reg syncsample;
-always @(negedge m_clock) begin // was negedge hmm
+always @(posedge m_clock) begin 
 	if (p_reset) begin
 		cpu_rplylatch <= 0;
 		cpu_rply <= 0;
 		out <= 0;
 	end 
-	else if (1) begin
+	else if (ce) begin
 		syncsample <= cpu_sync;
 		
 		if (~syncsample & cpu_sync) begin
@@ -218,13 +230,13 @@ end
 
 assign _cpu_irq_in = kbd_available & ~kbd_int_flag &(_Arbiter_cpu_pri == 0);
 
-always @(negedge m_clock) begin
+always @(posedge m_clock) begin
 	if(p_reset) begin
 	   kbd_int_flag <= 1'b0;
 	   bad_addr <= 1'b0;
 	   roll <= 'o01330;
 	end
-	else begin
+	else if (ce) begin
 		if (stopkey) stopkey_latch <= 1'b1;
 		if (reg_space) begin
 			if(bad_reg)

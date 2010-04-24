@@ -10,8 +10,8 @@
 
 `include "instr.h"
 
-module datapath(clk, ce, clkdbi, reset_n, dbi, dbo, dba, opcode, psw, ctrl, alucc, taken, PC, ALU1, ALUOUT, SRC, DST, Rtest);
-input			clk, ce, clkdbi, reset_n;
+module datapath(clk, ce, clkdbi, cedbi, reset_n, dbi, dbo, dba, opcode, psw, ctrl, alucc, taken, PC, ALU1, ALUOUT, SRC, DST, Rtest);
+input			clk, ce, clkdbi, cedbi, reset_n;
 input 	[15:0]	dbi;
 output reg[15:0]dbo;
 output reg[15:0]dba;
@@ -66,7 +66,8 @@ reg taken; // latch
 reg [15:0] dbi_r;
 
 always @(posedge clkdbi) 
-    dbi_r <= dbi;
+    if (cedbi) 
+        dbi_r <= dbi;
 
 always @* //@(ctrl[`CCTAKEN])
     taken = 	( ({OPC_BYTE,OPC[10:9]}==0)                             )|
@@ -276,7 +277,8 @@ always @(posedge clk)
 
 reg [3:0] alucc;
 always @(posedge clk)
-	if (ctrl[`CCGET]) alucc <= alu_ccout;
+    if (ce)
+        if (ctrl[`CCGET]) alucc <= alu_ccout;
 
 wire 			alu_ni, alu_ci, alu_bi;
 wire 	[15:0]	alu_out;

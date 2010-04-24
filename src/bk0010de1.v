@@ -211,7 +211,6 @@ bk0010 elektronika(
 		.tape_out(tape_out),
 		.tape_in(tape_in),
 		
-		.clk_cpu_buff(clkcpu),
 		.cpu_rd(GPIO_0[1]),
 		.cpu_wt(GPIO_0[2]),
 		.cpu_oe_n(GPIO_0[3]),
@@ -222,7 +221,7 @@ bk0010 elektronika(
 		.ram_out_data(ram_out_data),
 		);
 		
-reg [15:0] cpu_addr_reg;
+reg  [15:0] cpu_addr_reg;
 wire [15:0] cpu_opcode, ram_out_data;
 
 reg [15:0] hexdisplay;
@@ -235,7 +234,7 @@ always 	case (SW[5:4])
 
 SEG7_LUT_4 seg7display(HEX0, HEX1, HEX2, HEX3,  hexdisplay);
 
-always @(posedge clkcpu) begin
+always @(posedge clk25) begin
 	if (cpu_inst) cpu_addr_reg <= cpu_addr;
 end
 

@@ -15,12 +15,13 @@
 
 // 35ns/clk for negedge
 // 15ns/clk for posedge/2
-`define DATAPATH_ON_NEGEDGE
+//`define DATAPATH_ON_NEGEDGE
 
 `include "opc.h"
 `include "instr.h"
 
-module vm1(clk, ce,
+module vm1(clk, 
+           ce,
            reset_n,
            data_i,
            data_o,
@@ -60,16 +61,16 @@ module vm1(clk, ce,
 		   error_bus,
 		   OPCODE,
 		   PC,
-			ALU1,
-			ALUOUT, SRC, DST,
-			ALUCC,
-			idccat,
-			psw,
-			op_decoded,		
-			test_control,
-			test_bus,
-			Rtest,
-			taken
+           ALU1,
+           ALUOUT, SRC, DST,
+           ALUCC,
+           idccat,
+           psw,
+           op_decoded,		
+           test_control,
+           test_bus,
+           Rtest,
+           taken
            );
 
 input           clk;
@@ -180,8 +181,11 @@ wire					controlr_byte;
 `ifdef DATAPATH_ON_NEGEDGE
 wire	ctl_ce = ce,
 		dp_ce = ce;
-wire	dp_clk = ~clk;
+wire	dp_clk  = ~clk;
+wire    dbi_clk = clk;
+wire    cedbi = 1;
 `else
+
 reg 	ticktock;
 always @(posedge clk)
 	if (ce) ticktock <= ~ticktock;
@@ -189,7 +193,9 @@ always @(posedge clk)
 wire	ctl_ce = ce & ticktock, 
 		dp_ce =  ce & ~ticktock;
 		
-wire	dp_clk = clk;
+wire	dp_clk  = clk;
+wire    dbi_clk = clk;
+wire    cedbi   = ctl_ce;
 `endif
 
 wire	error_to_control = error_bus | error_i;
@@ -233,8 +239,9 @@ idc idcr(
 
 datapath dp(
 	.clk(dp_clk),
-	.clkdbi(clk),
 	.ce(dp_ce),
+	.clkdbi(dbi_clk),
+	.cedbi(cedbi),
 	.reset_n(reset_n),
 	.dbi(data_i), 
 	.dbo(data_o),

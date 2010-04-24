@@ -36,7 +36,6 @@ module bk0010(
 		RED,GREEN,BLUE,vs,hs,
 		tape_out,
 		tape_in,
-		clk_cpu_buff,
 		cpu_rd,
 		cpu_wt,
 		cpu_oe_n,
@@ -59,7 +58,7 @@ output 				pwait;
 input 				iTCK, iTDI, iTCS;
 output 				oTDO;
 
-output 				clk_cpu_buff,cpu_rd,cpu_wt,cpu_oe_n;
+output 				cpu_rd,cpu_wt,cpu_oe_n;
 output	[7:0] 		greenleds;
 output 				_cpu_inst;
 output 	[15:0]		cpu_adr;
@@ -87,13 +86,12 @@ output  [15:0]      ram_out_data;
 
 wire 			kbd_data_wr;
 wire 			video_access;
-wire[9:0] 		x;
-wire[9:0] 		y;
+wire[9:0] 		screen_x;
+wire[9:0] 		screen_y;
 wire       		valid;
 wire       		R,G,B;
 wire        	color;
-wire        	load;
-wire 			vga_oe_n;
+wire 			vga_oe_n;           // 0= ram data output to shifter
 reg [1:0] 		vga_state;
 reg [1:0] 		next_vga_state;
 
@@ -102,7 +100,7 @@ wire[15:0] 		usb_a_data;
 wire 			usb_a_lb;
 wire 			usb_a_ub;
 wire 			usb_we_n;
-wire 			usb_oe_n;
+wire 			usb_oe_n;           // 0= ram data output to usb
 reg [1:0] 		usb_clk;
 
 wire[12:0] 		vga_addr;
@@ -114,7 +112,7 @@ wire 			AUD_CLK;
 wire 			kbd_available;
 
 
-reg [23:0] 		cntr; // slow counter for heartbeat LED
+reg [23:0] 		cntr;               // slow counter for heartbeat LED
 
 wire 			b0_debounced;
 wire 			stop_run;
@@ -129,20 +127,31 @@ wire 			cpu_wt;
 wire 			cpu_rd;
 wire 			cpu_byte;
 wire 			single_step;
-wire 			cpu_clock_en;
-wire 			clk_cpu;
-wire 			clk_cpu_buff;
+wire 			cpu_pause;          // switch-controlled CPU pause (SW7)
+wire 			clk_cpu;            // 25 MHz clock
+wire            ce_cpu;             // CPU clock enable 
+wire            ce_shifter_load;    // latch data into pixel shifter
 reg [4:0] 		clk_cpu_count;
-wire 			cpu_oe_n;
-wire 			cpu_we_n;
+wire 			cpu_oe_n;           // 0= ram data output to cpu
+wire 			cpu_we_n;           // 0= cpu outputs data to ram
 wire 			read_kbd;
+
 wire [7:0] 		roll;
 
 reg [15:0] 		latched_ram_data;
 reg [15:0] 		data_from_cpu;
 
-reg [2:0] 		seq;
 reg [1:0] 		one_shot;
+
+
+assign      single_step = switch[6];
+assign      cpu_pause = switch[7];
+
+assign      ce_cpu    = cpu_pause && (screen_x[3:0] == 3'b0110 || screen_x[3:0] == 3'b0101);
+assign      clk_cpu   = clk25;
+
+assign      ce_shifter_load = screen_x[3:0] == 4'b0000;
+
 
 assign greenleds = {cpu_rdy, b0_debounced, kbd_available, usb_we_n, ram_we_n, cpu_we_n, cpu_wt, cntr[23]};
 
@@ -166,13 +175,15 @@ assign cpu_ub = cpu_byte & ~cpu_adr[0];
 reg cpu_rdy;
 
 reg b0samp;
-always @(posedge clk_cpu_buff) b0samp <= button0;
+always @(posedge clk_cpu) 
+    if (ce_cpu) b0samp <= button0;
 
-always @(posedge clk_cpu_buff) begin
+always @(posedge clk_cpu) begin
 	if (reset_in) begin
 		cpu_rdy <= 1;
 		jtag_hlda <= 0;
-	end else begin
+	end 
+	else if (ce_cpu) begin
 		if (jtag_hold | single_step) begin
 			cpu_rdy <= 0;
 			jtag_hlda <= 1;
@@ -187,7 +198,9 @@ always @(posedge clk_cpu_buff) begin
 end
 
 // ------------ simple breakpoint
-
+wire breakpoint_latch = 0;
+wire match_hit = 0;
+/*
 reg breakpoint_latch;
 reg match_hit;
 
@@ -213,32 +226,17 @@ always @(negedge clk_cpu_buff) begin
         if (~b0samp & button0) breakpoint_latch <= 1'b0;
     end
 end
+*/
 
 // vga state machine runs on 50 MHz clock
 always @(posedge clk50) begin
 	if(reset_in) 
 		vga_state <= 0;
 	else begin
-		//if(switch[1])	// removed: no use but confusion
 		vga_state <= next_vga_state;
 	end
 end
 
-assign single_step = switch[6];
-assign cpu_clock_en = switch[7];
-
-//assign clk_cpu = (switch[5] ? x[3] : x[4]) & cpu_clock_en; 
-assign clk_cpu = x[3] & cpu_clock_en; 
-
-/*
-  BUFG CLKCPU_BUFG_INST(
-    .I (clk_cpu),
-    .O (clk_cpu_buff));
-*/
-
-CLK_LOCK(.inclk(clk_cpu), .outclk(clk_cpu_buff));
-
-// synthesis attribute clock_signal of clk_cpu is yes; 
 wire [6:0] ascii;
 wire [7:0] kbd_data;
 assign kbd_data = {1'b0, ascii};
@@ -269,7 +267,8 @@ wire kbd_ar2;
 
  bkcore core (
     .p_reset(CPU_reset), 
-    .m_clock(clk_cpu_buff), 
+    .m_clock(clk_cpu), 
+    .ce(ce_cpu),
     .cpu_rdy(cpu_rdy_final), 
     .wt(cpu_wt), 
     .rd(cpu_rd), 
@@ -292,22 +291,25 @@ wire kbd_ar2;
 	.testselect(switch[3:2])
     );
 
+
+// SEQ is here
+reg [2:0] 		seq;
+
+always @(posedge clk25) begin
+	if(reset_in) begin
+		clk_cpu_count <= 0;
+		seq <= 0;
+		one_shot <= 0;
+	end
+	else begin
+		clk_cpu_count <= clk_cpu_count + 1;
+		seq <= {seq[1:0],( cpu_rd | cpu_wt) & ce_cpu };
+		one_shot <= {one_shot[0], ( cpu_rd | cpu_wt)};
+	end
+end  
+
 assign cpu_oe_n = ~(cpu_rd & (seq[2] == 0) & (seq[0] == 1) & cpu_rdy ); 
 assign cpu_we_n = ~(cpu_wt & (seq[1:0]== 2'b01) ); // FIXME
-
-
-kbd_intf kbd_intf (
-    .mclk25(clk25), 
-    .reset_in(reset_in), 
-    .PS2_Clk(PS2_Clk), 
-    .PS2_Data(PS2_Data), 
-    .ascii(ascii), 
-    .kbd_available(kbd_available), 
-    .read_kb(read_kbd),
-	.key_stop(kbd_stopkey),
-	.key_down(kbd_keydown),
-	.ar2(kbd_ar2),
-    );
 
 
 always @(posedge clk25) begin
@@ -328,43 +330,6 @@ always data_to_interface = ram_a_data;
 //end
 always data_from_cpu <= cpu_out;
 
-always @(posedge clk25) begin
-	if(reset_in) begin
-		clk_cpu_count <= 0;
-		seq <= 0;
-		one_shot <= 0;
-	end
-	else begin
-		clk_cpu_count <= clk_cpu_count + 1;
-		seq <= {seq[1:0],( cpu_rd | cpu_wt) & clk_cpu };
-		one_shot <= {one_shot[0], ( cpu_rd | cpu_wt)};
-	end
-end  
-
-wire [7:0]read_cap;
-wire [2:0]cap_rd_sel;
-wire cap_rd;
-
-wire [3:0] capt_flags;
-wire cap_wr;
-assign cap_wr = ((cpu_rd | cpu_wt) & (seq[1:0] == 2'b01) & cpu_rdy);
-
-assign capt_flags = { cpu_byte, _cpu_inst, cpu_rd , cpu_wt};
-/*
-   capture capture (
-    .res(reset_in), 
-    .clk25(clk25), 
-    .cap_addr(cpu_adr), 
-    .cap_dat(ram_a_data),
-    .flags(capt_flags), 
-    .cap_wr(cap_wr), 
-    .read_cap_l(read_cap), 
-    .cap_rd(cap_rd), 
-    .cap_rd_sel(cap_rd_sel)
-    );
-
-*/   
-   
 `ifdef WITH_USB
 usbintf usb_intf (
     .mclk(usb_clk[1]), 
@@ -420,23 +385,21 @@ assign usb_we_n = 1;
 assign usb_oe_n = 1;
 `endif
    
-sync_gen25 syncgen( .clk(clk25), .res(reset_in), .CounterX(x), .CounterY(y), 
+sync_gen25 syncgen( .clk(clk25), .res(reset_in), .CounterX(screen_x), .CounterY(screen_y), 
 		   .Valid(valid), .vga_h_sync(hs), .vga_v_sync(vs));
 
-
 shifter shifter(.clk25(clk25),.color(color),.R(R),.G(G),.B(B),
-	   .valid(valid),.data(ram_a_data),.x(x),.load(load));
+	   .valid(valid),.data(ram_a_data),.x(screen_x),.load_i(ce_shifter_load));
 
 
 assign RST_IN = 1'b0;
-assign vga_addr = { y[8:1] - 'o0330 + roll , x[8:4]};
-assign ram_a_ce = 0; // always on
+assign vga_addr = { screen_y[8:1] - 'o0330 + roll , screen_x[8:4]};
 
 reg [15:0] ram_addr;
 always @*
 	casex ({~(cpu_oe_n & cpu_we_n),~(usb_we_n & usb_oe_n)})
 		2'b10:		ram_addr <= {1'b0, cpu_adr[15:1]};
-		2'b01:		ram_addr <= usb_addr;
+		2'bx1:		ram_addr <= usb_addr;
 		default:	ram_addr <= {5'b00001, vga_addr};
 	endcase
 
@@ -444,7 +407,7 @@ reg [15:0] ram_out_data;
 always @*
 	casex ({~cpu_we_n,~usb_we_n}) 
 		2'b10:		ram_out_data <= data_from_cpu;
-		2'b01:		ram_out_data <= usb_a_data;
+		2'bx1:		ram_out_data <= usb_a_data;
 		default: 	ram_out_data <= data_from_cpu;
 	endcase
 
@@ -458,6 +421,8 @@ wire [15:0] ram_out_data = ~cpu_we_n ? data_from_cpu: ~usb_we_n ? usb_a_data : 1
 */
 
 	
+assign ram_a_ce = 0; // always on
+
 assign ram_a_data =  ~cpu_we_n? data_from_cpu: 
 				~usb_we_n ? usb_a_data : 
 				16'b zzzzzzzzzzzzzzzz ;
@@ -470,12 +435,12 @@ assign ram_a_ub = ~( cpu_oe_n & cpu_we_n )? cpu_ub:
   
   
 assign ram_oe_n = usb_oe_n & vga_oe_n & cpu_oe_n; // either one active low
-assign ram_we_n = usb_we_n & cpu_we_n; // video never writes
+assign ram_we_n = usb_we_n & cpu_we_n;            // video never writes
 
 
 assign      color = switch[0];
 
-assign      video_access = load; /* & switch[1]*/  // always read video data at the first half of a cycle 
+assign      video_access = ce_shifter_load; /* & switch[1]*/  // always read video data at the first half of a cycle 
    
 assign vga_oe_n = ~video_access;
 
@@ -487,43 +452,8 @@ always @(posedge clk25) begin
 end
    
 
-wire char_rom_cs, char_rom_rw; 
-wire [10:0] char_rom_addr; 
-wire [7:0] char_rom_rdata; 
-wire [7:0] char_rom_wdata;
-wire show_char_line;
-wire [3:0] char_line;
+wire show_char_line =  0;//((screen_y[9:4] == 6'b 100001) & ~screen_x[9]); // line after the valid screen
 wire char_bit;
-wire [6:0] char_code;
-
-wire [2:0] sel_bit;
-
- 
-
-assign  char_rom_rw = 1;
-assign  char_rom_cs = 1;
-assign   char_rom_wdata = 0;
-//assign show_char_line =  (y[9:4] == 0); // top line
-assign show_char_line =  ((y[9:4] == 6'b 100001) & ~x[9]); // line after the valid screen
-assign char_line = y[3:0];
-
-assign  sel_bit = ~x[2:0];
-assign  char_code = x[9:3]+ 'h30;
-assign  char_rom_addr = {char_code, char_line};
-assign  char_bit = char_rom_rdata[sel_bit];
-
-  /*
-  char_rom char_rom (
-    .clk(clk25), 
-    .rst(reset_in), 
-    .cs(char_rom_cs), 
-    .rw(char_rom_rw), 
-    .addr(char_rom_addr), 
-    .rdata(char_rom_rdata), 
-    .wdata(char_rom_wdata)
-    );
-   */
-
 
 always @(posedge clk25) begin
 if (valid) begin
@@ -547,8 +477,83 @@ end
 
 
 always @(posedge clk25) begin
-cntr <= cntr + 1'b 1;
+    cntr <= cntr + 1'b 1;
 end
+
+kbd_intf kbd_intf (
+    .mclk25(clk25), 
+    .reset_in(reset_in), 
+    .PS2_Clk(PS2_Clk), 
+    .PS2_Data(PS2_Data), 
+    .ascii(ascii), 
+    .kbd_available(kbd_available), 
+    .read_kb(read_kbd),
+	.key_stop(kbd_stopkey),
+	.key_down(kbd_keydown),
+	.ar2(kbd_ar2),
+    );
+
+
+
+
+/*
+wire char_rom_cs, char_rom_rw; 
+wire [10:0] char_rom_addr; 
+wire [7:0] char_rom_rdata; 
+wire [7:0] char_rom_wdata;
+wire [3:0] char_line;
+
+wire [6:0] char_code;
+
+wire [2:0] sel_bit;
+
+assign char_line = screen_y[3:0];
+assign  char_rom_rw = 1;
+assign  char_rom_cs = 1;
+assign   char_rom_wdata = 0;
+
+assign  sel_bit = ~screen_x[2:0];
+assign  char_code = screen_x[9:3]+ 'h30;
+assign  char_rom_addr = {char_code, char_line};
+assign  char_bit = char_rom_rdata[sel_bit];
+
+  char_rom char_rom (
+    .clk(clk25), 
+    .rst(reset_in), 
+    .cs(char_rom_cs), 
+    .rw(char_rom_rw), 
+    .addr(char_rom_addr), 
+    .rdata(char_rom_rdata), 
+    .wdata(char_rom_wdata)
+    );
+*/
+
+/*
+wire [7:0]read_cap;
+wire [2:0]cap_rd_sel;
+wire cap_rd;
+
+wire [3:0] capt_flags;
+wire cap_wr;
+assign cap_wr = ((cpu_rd | cpu_wt) & (seq[1:0] == 2'b01) & cpu_rdy);
+
+assign capt_flags = { cpu_byte, _cpu_inst, cpu_rd , cpu_wt};
+
+   capture capture (
+    .res(reset_in), 
+    .clk25(clk25), 
+    .cap_addr(cpu_adr), 
+    .cap_dat(ram_a_data),
+    .flags(capt_flags), 
+    .cap_wr(cap_wr), 
+    .read_cap_l(read_cap), 
+    .cap_rd(cap_rd), 
+    .cap_rd_sel(cap_rd_sel)
+    );
+
+*/   
+   
+
 
   
 endmodule

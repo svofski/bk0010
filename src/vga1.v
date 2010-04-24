@@ -62,7 +62,7 @@ always @(posedge clk)
 endmodule // sync_gen25
 
 
-module shifter(clk25,color,R,G,B,valid,data,x,load);
+module shifter(clk25,color,R,G,B,valid,data,x,load_i);
    input clk25,color,valid;
 
    input [15:0] data;
@@ -70,18 +70,19 @@ module shifter(clk25,color,R,G,B,valid,data,x,load);
    
    
    output 	R,G,B;
-   output  load;   
-   reg 	R,G,B;
+   input    load_i;   
+   
+   reg 	    R,G,B;
 
    reg [15:0] 	shiftreg;
 
    reg [1:0] colorbits;
    reg active_pixel;
   
-   assign load = (x[3:0] == 4'b0000);
+   //assign load = (x[3:0] == 4'b0000);
     
    always @(negedge clk25) begin   
-   	if(load == 1) begin
+   	if(load_i == 1) begin
 	 	if(x == 0)
 	 		active_pixel <= 1;
 		else if(x[9])
@@ -90,55 +91,55 @@ module shifter(clk25,color,R,G,B,valid,data,x,load);
    end
 	
 
-   always @(posedge clk25) begin
-      if(load == 1) begin
-		if(active_pixel)
-			shiftreg <= data;
-		else
-			shiftreg <= 0;
-	  end  else 
-			shiftreg <= {1'b0, shiftreg[15:1]};
+    always @(posedge clk25) begin
+        if(load_i == 1) begin
+            if(active_pixel)
+                shiftreg <= data;
+            else
+                shiftreg <= 0;
+        end 
+        else 
+            shiftreg <= {1'b0, shiftreg[15:1]};
 
-      if(color) begin
-	 case (colorbits)
-	   2'b01: begin 
-	     R <= 0;
-	     B<= 1;
-	     G <= 0;
-	   end
-	   
-	   2'b10: begin
-	     R <= 0;
-	     B<= 0;
-	     G <= 1;
-	   end
-	   
-	   2'b11: begin
-	     R <= 1;
-	     B<= 0;
-	     G <= 0;
-	   end
-	   
-	   default: begin // 00
-	      R <= 0;
-	      B<= 0;
-	      G <= 0;
-	   end
-	 endcase // case(colorbits)
-      end // if (color)
-      else begin
-	 	R <= shiftreg[0];
-	 	G <= shiftreg[0];
-	 	B <= shiftreg[0];
-      end // else: !if(color)
-	   
-   end
+        if(color) begin
+            case (colorbits)
+            2'b01: begin 
+                     R <= 0;
+                     B <= 1;
+                     G <= 0;
+                    end
 
-   always @(posedge clk25) begin
-      if(color & x[0])  begin
-	 colorbits <= shiftreg[1:0];
-      end
-   end
+            2'b10: begin
+                     R <= 0;
+                     B <= 0;
+                     G <= 1;
+                    end
+
+            2'b11: begin
+                     R <= 1;
+                     B <= 0;
+                     G <= 0;
+                    end
+
+            default: begin // 00
+                      R <= 0;
+                      B <= 0;
+                      G <= 0;
+                    end
+            endcase // case(colorbits)
+        end // if (color)
+        else begin
+            R <= shiftreg[0];
+            G <= shiftreg[0];
+            B <= shiftreg[0];
+        end // else: !if(color)
+    end
+
+    always @(posedge clk25) begin
+        if(color & x[0])  begin
+            colorbits <= shiftreg[1:0];
+        end
+    end
 endmodule   
 
 
