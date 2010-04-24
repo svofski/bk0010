@@ -103,10 +103,13 @@ pop11 	cpu(.p_reset(p_reset),
 
 wire [7:0] test_control, test_bus;
 
+// switch [3:2]
 always @*
 	case (testselect)
 	2'b00:	redleds <= test_control;
 	2'b01:	redleds <= test_bus;
+	2'b10:	;
+	2'b11:  ;
 	endcase
 
 wire mDOUT;
@@ -147,7 +150,7 @@ wire cpu_sync;
 
 reg cpu_rplylatch;
 reg syncsample;
-always @(posedge m_clock) begin // was negedge hmm
+always @(negedge m_clock) begin // was negedge hmm
 	if (p_reset) begin
 		cpu_rplylatch <= 0;
 		cpu_rply <= 0;

@@ -432,12 +432,32 @@ assign RST_IN = 1'b0;
 assign vga_addr = { y[8:1] - 'o0330 + roll , x[8:4]};
 assign ram_a_ce = 0; // always on
 
+reg [15:0] ram_addr;
+always @*
+	casex ({~(cpu_oe_n & cpu_we_n),~(usb_we_n & usb_oe_n)})
+		2'b10:		ram_addr <= {1'b0, cpu_adr[15:1]};
+		2'b01:		ram_addr <= usb_addr;
+		default:	ram_addr <= {5'b00001, vga_addr};
+	endcase
+
+reg [15:0] ram_out_data;
+always @*
+	casex ({~cpu_we_n,~usb_we_n}) 
+		2'b10:		ram_out_data <= data_from_cpu;
+		2'b01:		ram_out_data <= usb_a_data;
+		default: 	ram_out_data <= data_from_cpu;
+	endcase
+
+	
+/*
 assign ram_addr = ~(cpu_oe_n & cpu_we_n) ? {1'b0, cpu_adr[15:1]}: // cpu has top priority
 	~(usb_we_n & usb_oe_n)? usb_addr:			// usb if needed 
 	 {5'b00001, vga_addr};
-  				
+
 wire [15:0] ram_out_data = ~cpu_we_n ? data_from_cpu: ~usb_we_n ? usb_a_data : 16'h ffff;
-  				 
+*/
+
+	
 assign ram_a_data =  ~cpu_we_n? data_from_cpu: 
 				~usb_we_n ? usb_a_data : 
 				16'b zzzzzzzzzzzzzzzz ;

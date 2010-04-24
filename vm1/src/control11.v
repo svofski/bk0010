@@ -39,23 +39,23 @@ module     control11(clk,
                 initq, 
                 test);
                 
-input                 clk;
-input                ce;
-input                reset_n;
-output    reg    [127:0]    dpcmd;
-input                ierror, ready;
-input                dp_taken;
-input         [15:0]    dp_opcode;
-input         [3:0]    dp_alucc;
-input        [15:0]    psw;
-output    reg            ifetch;
-input                irq_in;
-output    reg            iako;
-input[`IDC_NOPS:0]     idcop;
-output    reg            dati, dato;
-output  reg         mbyte;
-input                 idc_cco, idc_bra, idc_nof, idc_rsd, idc_dop, idc_sop, idc_unused;
-output    reg            initq;
+input               clk;
+input               ce;
+input               reset_n;
+output reg [127:0]  dpcmd;
+input               ierror, ready;
+input               dp_taken;
+input     [15:0]    dp_opcode;
+input      [3:0]    dp_alucc;
+input     [15:0]    psw;
+output reg          ifetch;
+input               irq_in;
+output reg          iako;
+input[`IDC_NOPS:0]  idcop;
+output reg          dati, dato;
+output reg          mbyte;
+input               idc_cco, idc_bra, idc_nof, idc_rsd, idc_dop, idc_sop, idc_unused;
+output reg          initq;
 
 output        [7:0]    test;
 
@@ -99,13 +99,13 @@ parameter SRC_OP = 1'b0,
           DST_OP = 1'b1;
 reg opsrcdst;
 
-wire [1:0]     MODE = dp_opcode[5:4];
+wire [1:0]   MODE = dp_opcode[5:4];
 wire         INDR = dp_opcode[3];
-wire        SPPC = dp_opcode[2] & dp_opcode[1];
-wire    AUTO_INC = dp_opcode[4];
-wire    AUTO_DEC = dp_opcode[5];
-wire        BYTE = dp_opcode[15];
-wire        TRACE= psw[4]; 
+wire         SPPC = dp_opcode[2] & dp_opcode[1];
+wire     AUTO_INC = dp_opcode[4];
+wire     AUTO_DEC = dp_opcode[5];
+wire         BYTE = dp_opcode[15];
+wire        TRACE = psw[4]; 
 
 `define dp(x) dpcmd[x] <= 1'b1
 
@@ -300,7 +300,6 @@ always @(posedge clk or negedge reset_n) begin
                 
                 // Deferred instruction
         FS_OF4:    begin
-                
                 if (opsrcdst == DST_OP) begin
                     if (ierror) begin
                         `dp(`BUSERR);

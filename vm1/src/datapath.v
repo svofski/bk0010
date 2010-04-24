@@ -142,15 +142,20 @@ always @(posedge clk or negedge reset_n)
 	if (!reset_n) {OPC_BYTE,OPC} <= 16'b0;
 	else if (ce) begin
 	    //if (ctrl[`SETOPC]) $display("set OPC to %o->", dbi_r);
-		case (1'b1) // synopsys parallel_case 
-		ctrl[`SETOPC]:		OPC <= dbi_r[14:0];                       
-		ctrl[`ODDREG]:    	OPC <= {OPC[14:7],~OPC[6],OPC[5:0]};          
-		ctrl[`CHANGE_OPR]:	OPC <= {OPC[14:12],OPC[5:0],OPC[11:6]};	      
-		endcase
-		
-		case (1'b1) // synopsys parallel_case
+		case (1'b1) 
+		ctrl[`SETOPC]:		begin
+                            OPC <= dbi_r[14:0];
+                            OPC_BYTE <= dbi_r[15];
+                            end
+		ctrl[`ODDREG]:    	begin
+                            OPC <= {OPC[14:7],~OPC[6],OPC[5:0]};          
+                            OPC_BYTE <= ctrl[`RESET_BYTE]?1'b0 : OPC_BYTE;
+                            end
+		ctrl[`CHANGE_OPR]:	begin
+                            OPC <= {OPC[14:12],OPC[5:0],OPC[11:6]};	      
+                            OPC_BYTE <= ctrl[`RESET_BYTE]?1'b0 : OPC_BYTE;
+                            end
 		ctrl[`RESET_BYTE]: 	OPC_BYTE <= 1'b0;
-		ctrl[`SETOPC]: 		OPC_BYTE <= dbi_r[15];
 		endcase
 	end
 

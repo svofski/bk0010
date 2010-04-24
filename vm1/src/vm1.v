@@ -326,11 +326,31 @@ assign berror = 0;
 reg [5:0] timeout;
 
 always @* bwtbt <= b;
-
+/*
 always @* begin
     bsync <= dati|dato;
     bdin <= dati;
     bdout <= dato;
+end
+*/
+
+
+reg dati_r, dato_r;
+
+always @(posedge clk) begin
+	if (breply) begin
+		dati_r <= 0;
+		dato_r <= 0;
+	end else begin
+		dati_r <= dati;
+		dato_r <= dato;
+	end
+end
+
+always @* begin
+    bsync <= dati|dato|dati_r|dato_r;
+    bdin <= dati | dati_r;
+    bdout <= dato | dato_r;
 end
 
 
