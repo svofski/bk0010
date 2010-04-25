@@ -136,7 +136,7 @@ wire 			cpu_wt;
 wire 			cpu_rd;
 wire 			cpu_byte;
 wire 			enable_bpts;        // 1 == hw breakpoints are enabled
-wire 			cpu_pause;          // switch-controlled CPU pause (SW7)
+wire 			cpu_pause_n;        // switch-controlled CPU pause (SW7)
 wire 			clk_cpu;            // 25 MHz clock
 wire            ce_cpu;             // CPU clock enable 
 wire            ce_shifter_load;    // latch data into pixel shifter
@@ -154,9 +154,9 @@ reg [1:0] 		one_shot;
 
 
 assign      enable_bpts = switch[6];
-assign      cpu_pause = switch[7];
+assign      cpu_pause_n = switch[7];
 
-assign      ce_cpu    = cpu_pause && (screen_x[3:0] == 3'b0100 || screen_x[3:0] == 3'b0101);
+assign      ce_cpu    = cpu_pause_n && (screen_x[3:0] == 3'b0100 || screen_x[3:0] == 3'b0101);
 assign      clk_cpu   = clk25;
 
 assign      ce_shifter_load = screen_x[3:0] == 4'b0000;
@@ -181,11 +181,9 @@ assign cpu_ub = cpu_byte & ~cpu_adr[0];
 */
 	
 
-reg cpu_rdy;
+wire cpu_rdy = 1'b1;
 
 reg b0samp;
-//always @(posedge clk_cpu) 
-//    if (ce_cpu) b0samp <= button0;
     
 reg [15:0] debounce_counter;    
 always @(posedge clk_cpu) 
@@ -201,20 +199,15 @@ assign b0_debounced = |debounce_counter;
 
 always @(posedge clk_cpu) begin
 	if (reset_in) begin
-		cpu_rdy <= 1;
 		jtag_hlda <= 0;
 	end 
-	else if (ce_cpu) begin
-		if (jtag_hold | ~cpu_pause) begin
-			cpu_rdy <= 0;
+	else if (~cpu_pause_n) begin
+		if (jtag_hold) begin
 			jtag_hlda <= 1;
 		end
 		else begin
-			cpu_rdy <= 1;
 			jtag_hlda <= 0;
 		end
-		
-		//if (~b0samp & button0) cpu_rdy <= 1; // allow button click-step
 	end
 end
 
@@ -239,7 +232,7 @@ always @*
     endcase
 
 always@(posedge clk_cpu) begin
-    if (~jtag_we_n) begin
+    if (~usb_we_n) begin
         if (usb_addr == 'h8000) begin
             breakpoint_addr <= usb_a_data;
         end
@@ -394,8 +387,8 @@ wire        jtag_hold;
 reg         jtag_hlda;
 wire        jtag_oe; // active high
 wire        jtag_we_n; // active low
-assign      usb_oe_n = ~jtag_oe;
-assign      usb_we_n = jtag_we_n;
+assign      usb_oe_n = cpu_pause_n | ~jtag_oe;        // only allow jtag access when SW[7] is 0
+assign      usb_we_n = cpu_pause_n | jtag_we_n;       // only allow jtag access when SW[7] is 0
 
 jtag_top jtagger(
 	.clk24(clk25),
