@@ -9,6 +9,12 @@
 // Based on the original BK-0010 code by Alex Freed.
 // ==================================================================================
 
+// Debug features available on DE1 (via DE1 Control Panel):
+//  Write to address 0x8000: address of unconditional breakpoint
+//  Read from addresses 0x8010-0x8018: contents of R0-R7 and PSW
+//  SW[6] == 1 Enables breakpoints
+//  KEY[2] skips past current location (sometimes)
+
 module bk0010(
 		clk50,
 		clk25,
@@ -82,6 +88,7 @@ output				vs,hs;
 
 output	[7:0]		redleds;
 output  [15:0]		cpu_opcode, cpu_sp;
+
 output  [15:0]      ram_out_data;
 
 wire 			kbd_data_wr;
@@ -110,6 +117,8 @@ wire 			RST_IN;
 wire 			AUD_CLK;
 
 wire 			kbd_available;
+
+wire [143:0]    cpu_registers;
 
 
 reg [23:0] 		cntr;               // slow counter for heartbeat LED
@@ -175,8 +184,20 @@ assign cpu_ub = cpu_byte & ~cpu_adr[0];
 reg cpu_rdy;
 
 reg b0samp;
+//always @(posedge clk_cpu) 
+//    if (ce_cpu) b0samp <= button0;
+    
+reg [15:0] debounce_counter;    
 always @(posedge clk_cpu) 
-    if (ce_cpu) b0samp <= button0;
+    if (ce_cpu) begin
+        b0samp <= button0;
+        if (~b0samp & button0) 
+            debounce_counter <= 16'hffff;
+        else
+            if (|debounce_counter) debounce_counter <= debounce_counter - 1;
+    end    
+
+assign b0_debounced = |debounce_counter;    
 
 always @(posedge clk_cpu) begin
 	if (reset_in) begin
@@ -193,7 +214,7 @@ always @(posedge clk_cpu) begin
 			jtag_hlda <= 0;
 		end
 		
-		if (~b0samp & button0) cpu_rdy <= 1; // allow button click-step
+		//if (~b0samp & button0) cpu_rdy <= 1; // allow button click-step
 	end
 end
 
@@ -201,34 +222,60 @@ end
 //wire breakpoint_latch = 0;
 //wire match_hit = 0;
 
+reg [15:0] breakpoint_addr;
+
+always @*
+    case (usb_addr)
+    'h8010:         data_to_interface <= cpu_registers[15:0]    ;  // = R[0];
+    'h8011:         data_to_interface <= cpu_registers[31:16]  ;   // = R[1];
+    'h8012:         data_to_interface <= cpu_registers[47:32]  ;   // = R[2];
+    'h8013:         data_to_interface <= cpu_registers[63:48]  ;   // = R[3];
+    'h8014:         data_to_interface <= cpu_registers[79:64]  ;   // = R[4];
+    'h8015:         data_to_interface <= cpu_registers[95:80]  ;   // = R[5];
+    'h8016:         data_to_interface <= cpu_registers[111:96] ;   // = R[6];
+    'h8017:         data_to_interface <= cpu_registers[127:112];  // = R[7];
+    'h8018:         data_to_interface <= cpu_registers[143:128];  // = psw; 
+    default:        data_to_interface <= ram_a_data;
+    endcase
+
+always@(posedge clk_cpu) begin
+    if (~jtag_we_n) begin
+        if (usb_addr == 'h8000) begin
+            breakpoint_addr <= usb_a_data;
+        end
+    end
+end
+
 reg breakpoint_latch;
-reg match_hit;
 
 always @(negedge clk_cpu) begin
     if (reset_in) begin
         breakpoint_latch <= 1'b0;
     end else 
-    if (ce_cpu && enable_bpts) begin
-        if (ifetch & cpu_rd) begin
-            case (cpu_adr)
-            //'o100132, // EMT dispatch: JSR PC, (R5)
-            //'o100742, // EMT 4 
-            //'o110474          // draw a line at (R3) with contents of R1
-            //'o110514            // exit from ^^
-            //'o111130            // draw column marks
-            'o146404:  begin    // TRAP handler
-                            if (cpu_opcode[7:0] == 'o6) // TRAP 6
-                                match_hit <= 1'b1;
-                            //if (cpu_opcode == 'o104510) // TRAP 110
-                            //    match_hit <= 1'b1;
-                        end
-            
-            default:		match_hit <= 1'b0;
-            endcase
+    if (ce_cpu) begin
+        if (enable_bpts) begin
+            if (ifetch & cpu_rd) begin
+                //case (cpu_adr)
+                //'o100132, // EMT dispatch: JSR PC, (R5)
+                //'o100742, // EMT 4 
+                //'o110474          // draw a line at (R3) with contents of R1
+                //'o110514            // exit from ^^
+                //'o111130            // draw column marks
+                //'o146404:  
+                if (cpu_adr == breakpoint_addr) 
+                begin    // TRAP handler
+                    //if (cpu_opcode[7:0] == 'o6) // TRAP 6
+                        breakpoint_latch <= 1'b1;
+                    //if (cpu_opcode == 'o104510) // TRAP 110
+                    //    match_hit <= 1'b1;
+                end
+                //endcase
+            end
         end
-
-        if (match_hit) breakpoint_latch <= 1'b1;
-        if (~b0samp & button0) breakpoint_latch <= 1'b0;
+        
+        if (~b0samp & button0) begin
+            breakpoint_latch <= 1'b0;
+        end
     end
 end
 
@@ -256,15 +303,6 @@ assign CPU_reset = reset_in | led_from_usb[0];
 //assign stop_run = (cpu_rd & single_step) | (match_hit & led_from_usb[2]) ;
 assign cpu_rdy_final = cpu_rdy &  ~breakpoint_latch;
    
-/*
-   match bp_match (
-    .inp_val(inp_val), 
-    .match_val(match_val_u), 
-    .mask(match_mask_u), 
-    .hit(match_hit)
-    );
-*/
-
 
 wire kbd_stopkey;
 wire kbd_keydown;
@@ -283,7 +321,6 @@ wire kbd_ar2;
     .byte(cpu_byte),
     .ifetch(ifetch),
 	.cpu_opcode(cpu_opcode),
-	.cpu_sp(cpu_sp),
     .kbd_data(kbd_data), 
     .kbd_available(kbd_available),
     .read_kbd(read_kbd),
@@ -294,7 +331,9 @@ wire kbd_ar2;
 	.tape_out(tape_out),
 	.tape_in(tape_in),
 	.redleds(redleds),
-	.testselect(switch[3:2])
+	.testselect(switch[3:2]),
+	.cpu_sp(cpu_sp),
+	.cpu_registers(cpu_registers)
     );
 
 
@@ -323,17 +362,6 @@ always @(posedge clk25) begin
 		latched_ram_data <= ram_a_data;
 end
 
-always data_to_interface = ram_a_data;
-
-//always @(posedge clk25) begin
-//	if(~usb_oe_n)
-//		data_to_interface = ram_a_data;
-//end
-
-//always @(negedge clk25) begin
-//	if(cpu_wt)
-//	   data_from_cpu <= cpu_out;
-//end
 always data_from_cpu <= cpu_out;
 
 `ifdef WITH_USB
@@ -379,7 +407,7 @@ jtag_top jtagger(
 	.iTDI(iTDI),
 	.iTCS(iTCS),
 	.oJTAG_ADDR(usb_addr),
-	.iJTAG_DATA_TO_HOST(ram_a_data/*data_to_interface*/),
+	.iJTAG_DATA_TO_HOST(data_to_interface),
 	.oJTAG_DATA_FROM_HOST(usb_a_data),
 	.oJTAG_SRAM_WR_N(jtag_we_n),
 	.oJTAG_SELECT(jtag_oe)

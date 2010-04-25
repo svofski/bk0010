@@ -26,8 +26,17 @@ output			taken;
 output [15:0]	PC;
 output [15:0]	ALU1, SRC, DST;
 output [15:0]	ALUOUT;
-output [15:0] 	Rtest;
+output [143:0] 	Rtest;
 
+assign Rtest[15:0]      = R[0];
+assign Rtest[31:16]     = R[1];
+assign Rtest[47:32]     = R[2];
+assign Rtest[63:48]     = R[3];
+assign Rtest[79:64]     = R[4];
+assign Rtest[95:80]     = R[5];
+assign Rtest[111:96]    = R[6];
+assign Rtest[127:112]   = R[7];
+assign Rtest[143:128]   = psw; 
 
 assign ALUOUT = alu_out;
 
@@ -54,7 +63,6 @@ assign	opcode = {OPC_BYTE,OPC};
 
 assign 	psw = {priority,trapbit,fn,fz,fv,fc};
 
-assign Rtest = R[6];
 
 reg taken; // latch
 

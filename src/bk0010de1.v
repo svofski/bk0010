@@ -186,7 +186,7 @@ bk0010 elektronika(
 		.clk25(clk25),
 		.reset_in(RST_IN),
 		.PS2_Clk(PS2_CLK), .PS2_Data(PS2_DAT),
-		.button0(~KEY[1]),
+		.button0(~KEY[2]),
 		.greenleds(LEDg),
 		.switch(SW[7:0]),
 

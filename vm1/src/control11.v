@@ -387,7 +387,7 @@ always @(posedge clk or negedge reset_n) begin
                                     `dp(`SRCALU2); `dp(`DSTALU1); `dp(`SUB); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; 
                                 end
                     idcop[`dexor]:begin `dp(`SRCALU1); `dp(`DSTALU2); `dp(`EXOR); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
-                    idcop[`dswab]: begin `dp(`SRCALU1); `dp(`SWAB); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
+                    idcop[`dswab]:begin `dp(`DSTALU1); `dp(`SWAB); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
 
                     idcop[`dnop]: begin state <= FS_IF0; end
                     idcop[`djmp]: begin 

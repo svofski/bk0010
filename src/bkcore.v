@@ -25,7 +25,7 @@ module bkcore(
  ifetch, _cpu_adrs, kbd_data, kbd_available, kbd_ar2, read_kbd, roll_out, stopkey, keydown, tape_in, tape_out,
  testselect,
  redleds,
- cpu_opcode, cpu_sp);
+ cpu_opcode, cpu_sp, cpu_registers);
 
 input 			p_reset;
 input			m_clock;
@@ -50,6 +50,7 @@ output 			byte;
 output reg[7:0]	redleds;
 input	[1:0]	testselect;
 output [15:0]	cpu_opcode, cpu_sp;
+output [143:0]  cpu_registers;
 
 wire 	[2:0] 	_Arbiter_cpu_pri;
 wire 	[7:0] 	_Arbiter_vector;
@@ -151,8 +152,10 @@ vm1 cpu(.clk(m_clock),
 		.test_control(test_control),
 		.test_bus(test_bus),
 		.OPCODE(cpu_opcode),
-		.Rtest(cpu_sp)
-        );			
+		.Rtest(cpu_registers)
+        );		
+        
+assign cpu_sp = cpu_registers[111:96];        	
 
 //----------------------
 reg cpu_rply;
