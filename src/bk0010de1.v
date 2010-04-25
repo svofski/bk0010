@@ -177,8 +177,9 @@ assign GPIO_0[4] = tape_in;
 assign GPIO_0[0] = clkcpu;
 
 wire clkcpu;
-wire cpu_inst;
 wire [15:0] cpu_addr;
+
+wire ifetch;
 
 bk0010 elektronika(
 		.clk50(clk50),
@@ -214,20 +215,21 @@ bk0010 elektronika(
 		.cpu_rd(GPIO_0[1]),
 		.cpu_wt(GPIO_0[2]),
 		.cpu_oe_n(GPIO_0[3]),
-		._cpu_inst(cpu_inst),
+		.ifetch(ifetch),
 		.cpu_adr(cpu_addr),
 		.cpu_opcode(cpu_opcode),
+		.cpu_sp(cpu_sp),
 		.redleds(LEDr[7:0]),
 		.ram_out_data(ram_out_data),
 		);
 		
 reg  [15:0] cpu_addr_reg;
-wire [15:0] cpu_opcode, ram_out_data;
+wire [15:0] cpu_opcode, cpu_sp, ram_out_data;
 
 reg [15:0] hexdisplay;
 always 	case (SW[5:4])
 		'b00:	hexdisplay = cpu_addr_reg;
-		'b01:	hexdisplay = cpu_addr;
+		'b01:	hexdisplay = cpu_sp;
 		'b10:	hexdisplay = cpu_opcode;
 		'b11:	hexdisplay = ~SRAM_WE_N ? ram_out_data : SRAM_DQ;
 		endcase
@@ -235,7 +237,7 @@ always 	case (SW[5:4])
 SEG7_LUT_4 seg7display(HEX0, HEX1, HEX2, HEX3,  hexdisplay);
 
 always @(posedge clk25) begin
-	if (cpu_inst) cpu_addr_reg <= cpu_addr;
+	if (ifetch) cpu_addr_reg <= cpu_addr;
 end
 
 

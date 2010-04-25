@@ -619,20 +619,18 @@ always @(posedge clk or negedge reset_n) begin
                         mbyte <= 1'b0;
                         dati <= 1'b1;
                         iako <= 1'b1;
-                        `dp(`RESET_BYTE);
+                        `dp(`RESET_BYTE); 
                         `dp(`SAVE_STAT);
                     end
                   end
         
         TRAP_SVC: begin
-                    `dp(`RESET_BYTE);
+                    `dp(`RESET_BYTE); 
                     `dp(`SAVE_STAT);
                     state <= TRAP_1;
                   end
                 
         TRAP_1:    begin
-                    //iako <= 1'b1; 
-                    
                     if (ierror) begin
                         `dp(`BUSERR);
                         state <= TRAP_SVC;

@@ -39,10 +39,10 @@ module bk0010(
 		cpu_rd,
 		cpu_wt,
 		cpu_oe_n,
-		_cpu_inst,
+		ifetch,
 		cpu_adr,
 		redleds,
-		cpu_opcode,
+		cpu_opcode, cpu_sp,
 		ram_out_data
 	);
 
@@ -60,7 +60,7 @@ output 				oTDO;
 
 output 				cpu_rd,cpu_wt,cpu_oe_n;
 output	[7:0] 		greenleds;
-output 				_cpu_inst;
+output 				ifetch;
 output 	[15:0]		cpu_adr;
 input	[7:0] 		switch;
 
@@ -81,7 +81,7 @@ output 	reg			RED,GREEN,BLUE;
 output				vs,hs;
 
 output	[7:0]		redleds;
-output  [15:0]		cpu_opcode;
+output  [15:0]		cpu_opcode, cpu_sp;
 output  [15:0]      ram_out_data;
 
 wire 			kbd_data_wr;
@@ -115,7 +115,7 @@ wire 			kbd_available;
 reg [23:0] 		cntr;               // slow counter for heartbeat LED
 
 wire 			b0_debounced;
-wire 			stop_run;
+//wire 			stop_run;
 
 wire [7:0] 		led_from_usb;
 
@@ -126,7 +126,7 @@ wire [15:0] 	cpu_out;
 wire 			cpu_wt;
 wire 			cpu_rd;
 wire 			cpu_byte;
-wire 			single_step;
+wire 			enable_bpts;        // 1 == hw breakpoints are enabled
 wire 			cpu_pause;          // switch-controlled CPU pause (SW7)
 wire 			clk_cpu;            // 25 MHz clock
 wire            ce_cpu;             // CPU clock enable 
@@ -144,10 +144,10 @@ reg [15:0] 		data_from_cpu;
 reg [1:0] 		one_shot;
 
 
-assign      single_step = switch[6];
+assign      enable_bpts = switch[6];
 assign      cpu_pause = switch[7];
 
-assign      ce_cpu    = cpu_pause && (screen_x[3:0] == 3'b0110 || screen_x[3:0] == 3'b0101);
+assign      ce_cpu    = cpu_pause && (screen_x[3:0] == 3'b0100 || screen_x[3:0] == 3'b0101);
 assign      clk_cpu   = clk25;
 
 assign      ce_shifter_load = screen_x[3:0] == 4'b0000;
@@ -184,7 +184,7 @@ always @(posedge clk_cpu) begin
 		jtag_hlda <= 0;
 	end 
 	else if (ce_cpu) begin
-		if (jtag_hold | single_step) begin
+		if (jtag_hold | ~cpu_pause) begin
 			cpu_rdy <= 0;
 			jtag_hlda <= 1;
 		end
@@ -198,25 +198,30 @@ always @(posedge clk_cpu) begin
 end
 
 // ------------ simple breakpoint
-wire breakpoint_latch = 0;
-wire match_hit = 0;
-/*
+//wire breakpoint_latch = 0;
+//wire match_hit = 0;
+
 reg breakpoint_latch;
 reg match_hit;
 
-always @(negedge clk_cpu_buff) begin
+always @(negedge clk_cpu) begin
     if (reset_in) begin
         breakpoint_latch <= 1'b0;
-    end else begin
-        if (_cpu_inst) begin
+    end else 
+    if (ce_cpu && enable_bpts) begin
+        if (ifetch & cpu_rd) begin
             case (cpu_adr)
             //'o100132, // EMT dispatch: JSR PC, (R5)
             //'o100742, // EMT 4 
             //'o110474          // draw a line at (R3) with contents of R1
             //'o110514            // exit from ^^
             //'o111130            // draw column marks
-            //                :	match_hit <= 1'b1;
-            
+            'o146404:  begin    // TRAP handler
+                            if (cpu_opcode[7:0] == 'o6) // TRAP 6
+                                match_hit <= 1'b1;
+                            //if (cpu_opcode == 'o104510) // TRAP 110
+                            //    match_hit <= 1'b1;
+                        end
             
             default:		match_hit <= 1'b0;
             endcase
@@ -226,7 +231,7 @@ always @(negedge clk_cpu_buff) begin
         if (~b0samp & button0) breakpoint_latch <= 1'b0;
     end
 end
-*/
+
 
 // vga state machine runs on 50 MHz clock
 always @(posedge clk50) begin
@@ -248,7 +253,7 @@ wire [15:0] match_mask_u;
 wire cpu_rdy_final;
 
 assign CPU_reset = reset_in | led_from_usb[0]; 
-assign stop_run = (cpu_rd & single_step) | (match_hit & led_from_usb[2]) ;
+//assign stop_run = (cpu_rd & single_step) | (match_hit & led_from_usb[2]) ;
 assign cpu_rdy_final = cpu_rdy &  ~breakpoint_latch;
    
 /*
@@ -276,8 +281,9 @@ wire kbd_ar2;
     .out(cpu_out), 
     .adr(cpu_adr), 
     .byte(cpu_byte),
-    ._cpu_inst(_cpu_inst),
+    .ifetch(ifetch),
 	.cpu_opcode(cpu_opcode),
+	.cpu_sp(cpu_sp),
     .kbd_data(kbd_data), 
     .kbd_available(kbd_available),
     .read_kbd(read_kbd),
@@ -356,12 +362,12 @@ usbintf usb_intf (
 `endif
 `ifdef WITH_DE1_JTAG
 
-wire jtag_hold;
-reg  jtag_hlda;
-wire jtag_oe; // active high
-wire jtag_we_n; // active low
-assign usb_oe_n = ~jtag_oe;
-assign usb_we_n = jtag_we_n;
+wire        jtag_hold;
+reg         jtag_hlda;
+wire        jtag_oe; // active high
+wire        jtag_we_n; // active low
+assign      usb_oe_n = ~jtag_oe;
+assign      usb_we_n = jtag_we_n;
 
 jtag_top jtagger(
 	.clk24(clk25),
@@ -442,7 +448,7 @@ assign      color = switch[0];
 
 assign      video_access = ce_shifter_load; /* & switch[1]*/  // always read video data at the first half of a cycle 
    
-assign vga_oe_n = ~video_access;
+assign      vga_oe_n = ~video_access;
 
 always @(posedge clk25) begin
 	if(reset_in)
@@ -537,7 +543,7 @@ wire [3:0] capt_flags;
 wire cap_wr;
 assign cap_wr = ((cpu_rd | cpu_wt) & (seq[1:0] == 2'b01) & cpu_rdy);
 
-assign capt_flags = { cpu_byte, _cpu_inst, cpu_rd , cpu_wt};
+assign capt_flags = { cpu_byte, ifetch, cpu_rd , cpu_wt};
 
    capture capture (
     .res(reset_in), 

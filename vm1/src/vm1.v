@@ -28,7 +28,6 @@ module vm1(clk,
            addr_o,
 
            error_i,      
-           fault_i,
            
            SYNC,        // o: address set
            RPLY,        // i: reply to DIN or DOUT
@@ -85,7 +84,7 @@ input           RPLY;        // i: reply to DIN or DOUT
 `endif
 output  [15:0]  data_o;
 output  [15:0]  addr_o;
-input           error_i, fault_i;
+input           error_i;
 output          SYNC;        // o: address set
 output          DIN;         // o: data in
 output          DOUT;        // o: data out

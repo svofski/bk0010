@@ -54,12 +54,7 @@ assign	opcode = {OPC_BYTE,OPC};
 
 assign 	psw = {priority,trapbit,fn,fz,fv,fc};
 
-
-`ifdef TESTBENCH
-assign Rtest = R[5];
-`else 
-assign Rtest = 'o177777;
-`endif
+assign Rtest = R[6];
 
 reg taken; // latch
 

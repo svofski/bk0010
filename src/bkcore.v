@@ -22,16 +22,16 @@ module bkcore(
  out, 
  adr, 
  byte,
- _cpu_inst, _cpu_adrs, kbd_data, kbd_available, kbd_ar2, read_kbd, roll_out, stopkey, keydown, tape_in, tape_out,
+ ifetch, _cpu_adrs, kbd_data, kbd_available, kbd_ar2, read_kbd, roll_out, stopkey, keydown, tape_in, tape_out,
  testselect,
  redleds,
- cpu_opcode);
+ cpu_opcode, cpu_sp);
 
 input 			p_reset;
 input			m_clock;
 input           ce;
 output 	[15:0] 	_cpu_adrs;
-output 			_cpu_inst, read_kbd;
+output 			ifetch, read_kbd;
 input 			kbd_available;
 input 	[7:0] 	kbd_data;
 input			kbd_ar2;
@@ -49,7 +49,7 @@ output 	[15:0] 	adr;
 output 			byte;
 output reg[7:0]	redleds;
 input	[1:0]	testselect;
-output [15:0]	cpu_opcode;
+output [15:0]	cpu_opcode, cpu_sp;
 
 wire 	[2:0] 	_Arbiter_cpu_pri;
 wire 	[7:0] 	_Arbiter_vector;
@@ -57,7 +57,6 @@ reg 	[15:0] 	_cpu_dati;
 wire 	[15:0] 	_cpu_dato;
 wire 			_cpu_irq_in;
 wire 			_cpu_error;
-wire 			_cpu_fault;
 wire 			_cpu_rd;
 reg 			_cpu_wt;
 wire 			_cpu_byte;
@@ -96,7 +95,7 @@ assign cpu_dati = ( _cpu_int_ack)? kbd_int_vector : _cpu_dati;
 /*
 pop11 	cpu(.p_reset(p_reset), 
 			.m_clock(m_clock), 
-			.inst(_cpu_inst), 
+			.inst(ifetch), 
 			.pswout(_cpu_pswout), 
 			.int_ack(_cpu_int_ack), 
 			.byte(_cpu_byte), 
@@ -130,14 +129,12 @@ wire [15:0] cpu_data_o;
 vm1 cpu(.clk(m_clock), 
         .ce(ce),
         .reset_n(~p_reset),
-		.IFETCH(_cpu_inst),
+		.IFETCH(ifetch),
         .data_i(cpu_dati),
         .data_o(_cpu_dato),
         .addr_o(_cpu_adrs),
 
         .error_i(_cpu_error),      
-        .fault_i(_cpu_fault),
-
 		.SYNC(cpu_sync),
 		.RPLY(cpu_rply),
 
@@ -149,11 +146,12 @@ vm1 cpu(.clk(m_clock),
         .IRQ1(1'b0),            // i: console interrupt
         .IRQ2(1'b0),            // i: trap to 0100
         .IRQ3(1'b0),            // i: trap to 0270
-           
         .IAKO(_cpu_int_ack),    // o: interrupt ack, DIN requests vector
+        
 		.test_control(test_control),
 		.test_bus(test_bus),
 		.OPCODE(cpu_opcode),
+		.Rtest(cpu_sp)
         );			
 
 //----------------------
@@ -195,8 +193,6 @@ assign roll_out = roll[7:0];
 assign cpu_rdy_internal = cpu_rdy & ~bad_addr;
 assign _Arbiter_cpu_pri = _cpu_pswout[7:5];
 
-assign _cpu_fault = 1'b0;
-
 assign adr = _cpu_adrs;
 assign byte = _cpu_byte;
 assign wt = _cpu_wt & ram_space;// & ~m_clock;
@@ -219,7 +215,7 @@ assign usr_sel = (_cpu_adrs[6:0] == 'o114);
 assign bad_reg = ~(kbd_state_sel | kbd_data_sel |roll_sel |initreg_sel | usr_sel );
 
 assign read_kbd = kbd_data_sel;
-assign _cpu_error = bad_addr | (_cpu_inst & stopkey);
+assign _cpu_error = bad_addr | (ifetch & stopkey);
 
    
 reg stopkey_latch;
