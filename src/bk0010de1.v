@@ -18,6 +18,7 @@
 
 `define WITH_DE1_JTAG
 `define JTAG_AUTOHOLD
+`define DATAPATH_ON_NEGEDGE
 
 module bk0010de1(
 		CLOCK_27, 

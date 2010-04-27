@@ -316,19 +316,6 @@ input       b;
 
 output      complete;
 
-parameter BUS_TIMEOUT = 63;
-
-parameter [4:0]
-                S_IDLE = 0,
-				S_R0 = 1,
-                S_R1 = 2,
-                S_W0 = 3,
-                S_W1 = 4,
-                S_FINISHED = 5,
-                S_BUSERROR= 6;
-
-reg [6:0] state;
-
 assign bbsy = bsync;
 
 assign berror = 0;
@@ -336,14 +323,6 @@ assign berror = 0;
 reg [5:0] timeout;
 
 always @* bwtbt <= b;
-/*
-always @* begin
-    bsync <= dati|dato;
-    bdin <= dati;
-    bdout <= dato;
-end
-*/
-
 
 reg dati_r, dato_r;
 
@@ -363,104 +342,5 @@ always @* begin
     bdout <= dato | dato_r;
 end
 
-
-/*
-always @* begin
-	if (~reset_n | ~(dati|dato)) begin
-		bsync <= 1'b0;
-		bdin <= 1'b0;
-		bdout <= 1'b0;
-	end else begin
-		case (1'b1) 
-		dati:	begin
-				bsync <= 1'b1;
-				bdin <= 1'b1;
-				bdout <= 1'b0;
-				end
-		dato:	begin
-				bsync <= 1'b1;
-				bdin <= 1'b0;
-				bdout <= 1'b1;
-				end
-		endcase
-	end
-end
-
-reg syncsamp;
-reg error;
-always @(posedge clk or negedge reset_n) begin
-	if (~reset_n) begin
-		error <= 1'b0;
-		timeout <= BUS_TIMEOUT;
-	end else if (ce) begin
-		syncsamp <= bsync;
-		
-		//if (~syncsamp & bsync) 	timeout <= BUS_TIMEOUT;
-		if (~bsync) 	timeout <= BUS_TIMEOUT;
-		if (bsync && timeout != 0) timeout <= timeout - 1'b 1;
-	end
-end
-*/
-
-/*
-always @(posedge clk or negedge reset_n) begin
-    if (!reset_n) begin
-		timeout <= 0;
-        state <= S_IDLE;
-    end 
-	else if (ce) begin
-		
-		if (timeout != 0) timeout <= timeout - 1'b 1;
-
-		case (state)
-			S_IDLE: 
-				begin
-					bsync <= 1'b0;
-					bdin <= 1'b0;
-					bdout <= 1'b0;
-					timeout <= BUS_TIMEOUT;
-					
-					if (dati) begin
-						state <= S_R1;
-						bsync <= 1'b1;
-						bdin  <= 1'b1;
-						bdout <= 1'b0;						
-					end 
-					else if (dato) 	begin
-						bsync <= 1'b1;
-						bdin  <= 1'b0;
-						bdout <= 1'b1;
-						state <= S_W1;
-					end 
-				end
-
-			S_R1: begin
-					if (breply) begin
-						state <= S_IDLE;
-						bsync <= 1'b0;
-						bdin <= 1'b0;
-						bdout <= 1'b0;
-					end
-					else if (timeout == 0) 	state <= S_BUSERROR;
-				end
-						
-			S_W1: begin
-					if (breply)	begin
-						state <= S_IDLE;
-						bsync <= 1'b0;
-						bdin <= 1'b0;
-						bdout <= 1'b0;
-					end
-					else if (timeout == 0) 	state <= S_BUSERROR;					
-				end
-				
-			S_BUSERROR:
-				begin
-					state <= S_IDLE;
-				end
-		endcase
-    end
-end
-*/
 endmodule
 

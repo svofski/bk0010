@@ -159,13 +159,12 @@ reg [1:0] 		one_shot;
 assign      enable_bpts = switch[6];
 assign      cpu_pause_n = switch[7];
 
-//assign      ce_cpu    = cpu_pause_n && (screen_x[3:0] == 4'b0100 || screen_x[3:0] == 4'b0101 || screen_x[3:0] == 4'b1000 || screen_x[3:0] == 4'b1001);
-//assign      ce_cpu    = cpu_pause_n && 
-//        (screen_x[3:0] == 4'b0100 || screen_x[3:0] == 4'b0101 || 
-//         screen_x[3:0] == 4'b1000 || screen_x[3:0] == 4'b1001 ||
-//         screen_x[3:0] == 4'b1100 || screen_x[3:0] == 4'b1101);
 always @*
-    case({hypercharge_i,cpu_pause_n,screen_x[3:0]}) 
+    casex({hypercharge_i,cpu_pause_n,screen_x[3:0]}) 
+`ifdef DATAPATH_ON_NEGEDGE    
+    6'b11xxx0: ce_cpu <= screen_x[1:0] == 2'b10;
+    6'b010101:  ce_cpu <= 1;
+`else    
     6'b110100,
     6'b110101,
     6'b111000,
@@ -174,6 +173,7 @@ always @*
     6'b111101:   ce_cpu <= 1;
     6'b010100,
     6'b010101:   ce_cpu <= 1;
+`endif    
     default:    ce_cpu <= 0;
     endcase
 
@@ -186,20 +186,6 @@ assign greenleds = {cpu_rdy, b0_debounced, kbd_available, usb_we_n, ram_we_n, cp
 
 assign cpu_lb = cpu_byte & cpu_adr[0];  // if byte LOW, lb low. If even addr, low too 
 assign cpu_ub = cpu_byte & ~cpu_adr[0];
-
-
-/*
-   debounce debounce(.pb_debounced(b0_debounced), .pb(button0), .clock_100Hz(cntr[16]));
-  
-   run_control run_control (.clk(clk_cpu_count[2]),.reset_in(reset_in), 
-   					.start(b0_debounced), .stop(stop_run), .active(cpu_rdy ));
-				//	.start(button0), .stop(stop_run));
-
-				//	assign cpu_rdy = 1;
-
-	wire cpu_rdy = 1;
-*/
-	
 
 wire cpu_rdy = 1'b1;
 
@@ -233,7 +219,6 @@ end
 
 // ------------ simple breakpoint
 //wire breakpoint_latch = 0;
-//wire match_hit = 0;
 
 reg [15:0] breakpoint_addr;
 
@@ -280,7 +265,6 @@ always @(negedge clk_cpu) begin
                     //if (cpu_opcode[7:0] == 'o6) // TRAP 6
                         breakpoint_latch <= 1'b1;
                     //if (cpu_opcode == 'o104510) // TRAP 110
-                    //    match_hit <= 1'b1;
                 end
                 //endcase
             end

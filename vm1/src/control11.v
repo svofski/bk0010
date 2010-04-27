@@ -374,20 +374,20 @@ always @(posedge clk or negedge reset_n) begin
                     idcop[`dasl]: begin `dp(`DSTALU1); `dp(`ASL); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
                     idcop[`dsxt]: begin `dp(`DSTALU1); `dp(`SXT); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
                     
-                    idcop[`dmov]: begin `dp(`SRCALU1); `dp(`MOV);     `dp(`ALUDST); `dp(`ALUCC); state <= WB_0; end
+                    idcop[`dmov]: begin `dp(`SRCALU1); `dp(`MOV); `dp(`ALUDST);  `dp(`ALUCC); state <= WB_0; end
                     
-                    idcop[`dcmp]: begin `dp(`SRCALU1); `dp(`DSTALU2); `dp(`CMP);    `dp(`ALUCC); state <= FS_IF0; end
-                    idcop[`dbit]: begin `dp(`SRCALU1); `dp(`DSTALU2); `dp(`BIT);    `dp(`ALUCC); state <= FS_IF0; end
-                    idcop[`dbic]: begin `dp(`SRCALU1); `dp(`DSTALU2); `dp(`BIC);    `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
-                    idcop[`dbis]: begin `dp(`SRCALU1); `dp(`DSTALU2); `dp(`BIS);    `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
+                    idcop[`dcmp]: begin `dp(`SRCALU1); `dp(`DSTALU2); `dp(`CMP); `dp(`ALUCC); state <= FS_IF0; end
+                    idcop[`dbit]: begin `dp(`SRCALU1); `dp(`DSTALU2); `dp(`BIT); `dp(`ALUCC); state <= FS_IF0; end
+                    idcop[`dbic]: begin `dp(`SRCALU1); `dp(`DSTALU2); `dp(`BIC); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
+                    idcop[`dbis]: begin `dp(`SRCALU1); `dp(`DSTALU2); `dp(`BIS); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
                     idcop[`dadd]: 
                                 if (!rsub) begin
                                     `dp(`SRCALU1); `dp(`DSTALU2); `dp(`ADD); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; 
                                 end else begin
                                     `dp(`SRCALU2); `dp(`DSTALU1); `dp(`SUB); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; 
                                 end
-                    idcop[`dexor]:begin `dp(`SRCALU1); `dp(`DSTALU2); `dp(`EXOR); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
-                    idcop[`dswab]:begin `dp(`DSTALU1); `dp(`SWAB); `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
+                    idcop[`dexor]:begin `dp(`SRCALU1); `dp(`DSTALU2); `dp(`EXOR);    `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
+                    idcop[`dswab]:begin `dp(`DSTALU1); `dp(`SWAB);    `dp(`ALUDSTB); `dp(`ALUCC); state <= WB_0; end
 
                     idcop[`dnop]: begin state <= FS_IF0; end
                     idcop[`djmp]: begin 
@@ -396,7 +396,8 @@ always @(posedge clk or negedge reset_n) begin
                                           state <= TRAP_SVC;
                                           `dp(`BUSERR);
                                       end else begin
-                                          `dp(`ADRPC); state <= FS_IF0; 
+                                          `dp(`ADRPC); 
+                                          state <= FS_IF0; 
                                       end
                                   end
 
@@ -437,8 +438,8 @@ always @(posedge clk or negedge reset_n) begin
                                             if (MODE == 2'b00 && ~INDR) begin
                                                 // can't jump to a register
                                                 // trap must happen now, before return address is pushed
-                                                state <= TRAP_SVC;
                                                 `dp(`BUSERR);
+                                                state <= TRAP_SVC;
                                             end else begin
                                                 `dp(`SPALU1); `dp(`DEC2); `dp(`ALUSP);
                                                 state <= EX_1;
@@ -459,7 +460,8 @@ always @(posedge clk or negedge reset_n) begin
                                             end
                                           end
                                     EX_2: begin
-                                              `dp(`ADRPC); state <= FS_IF0; 
+                                              `dp(`ADRPC); 
+                                              state <= FS_IF0; 
                                           end
                                     endcase
                                   end
@@ -563,17 +565,10 @@ always @(posedge clk or negedge reset_n) begin
                                   `dp(`ALUCC);
                                   state <= WB_0;
                                   end
-
-                    //default:      begin
-                    //              `dp(`ERR);
-                    //              state <= TRAP_SVC;
-                    //              end
                     endcase // idcop
                 end // EX_*
                 
         WB_0:     begin
-                    //state <= FS_IF0;
-                    
                     if (dp_opcode[5:3] != 0) begin
                         if (ierror) begin
                             `dp(`BUSERR);
@@ -581,7 +576,8 @@ always @(posedge clk or negedge reset_n) begin
                         end
                         else if (ready & dato) begin
                             if (TRACE) begin
-                                `dp(`BPT); state <= TRAP_SVC;
+                                `dp(`BPT); 
+                                state <= TRAP_SVC;
                             end 
                             else if (irq_in) 
                                 state <= TRAP_IRQ;
@@ -596,7 +592,8 @@ always @(posedge clk or negedge reset_n) begin
                     else begin
                         `dp(`DSTREG); `dp(`SETREG);
                         if (TRACE) begin
-                            `dp(`BPT); state <= TRAP_SVC;
+                            `dp(`BPT); 
+                            state <= TRAP_SVC;
                         end 
                         else if (irq_in) 
                             state <= TRAP_IRQ;
