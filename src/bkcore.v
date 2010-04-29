@@ -197,14 +197,26 @@ end
 
 //
 // A medium quick bus cycle: CPU notices RPLY on 3rd clock/ce
+//
+// Clock 0+: CPU sets DATI,SYNC   commands datapath to set DBA to PC
+//           SYNC is 0, was 0
+// Clock 0-: DBA <= PC: Address bus becomes valid
+//                      ... 10ns async RAM sets data ...
+// Clock 1+: SYNC is 1, was 0 --> RPLY <= 1 
+// Clock 1-: Nothing of value happens
+//
+// Clock 2+: CPU sees RPLY == 1, DBI_R registers data, sets new datapath instructions, advances state
+// Clock 2-: Datapath sets opcode from DBI_R, etc
+// 	     
+// DBI has valid data from RAM on Clock 1+, but the time is wasted on formalities.
+//
+//   0   1   2
 //   _   _   _
 // _/ \_/ \_/ \
 // ___ __
 // ___X__valid addr
-//    ___
-// __/ dati
-//    ___
-// __/ DBAPC/SYNC
+//   ___
+// _/ dati/SYNC
 //    ___
 // __/   \___ ~syncsample & sync
 //        ____  
