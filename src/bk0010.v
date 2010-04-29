@@ -320,6 +320,7 @@ wire kbd_ar2;
     .cpu_rdy(cpu_rdy_final), 
     .wt(cpu_wt), 
     .rd(cpu_rd), 
+    .reply_i(ram_reply),
     .in(latched_ram_data), 
     .out(cpu_out), 
     .adr(cpu_adr), 
@@ -361,13 +362,40 @@ end
 
 // active (0) when: cpu activity started on previous cycle, cpu is reading, (cpu_rdy is always 1)
 // this is to hold CPU address on the bus
+//   _   _   _   _   _   _   _   _
+// _/0\_/1\_/2\_/3\_/4\_/5\_/6\_/7\_    
+//    _______________
+// __/               XXX            cpu_rd
+// ___     ___     ___     ___
+//    \___/   \___/   \___/   \___  ce_cpu
+//                        
+//   000 000 001 010 100 000        seq
+// __________     ________
+//           \___/                  cpu_oe_n
+//                ________________
+// ______________/latched_ram_data
+//
 assign cpu_oe_n = ~(cpu_rd & (seq[2] == 0) & (seq[0] == 1) & cpu_rdy ); 
 assign cpu_we_n = ~(cpu_wt & (seq[1:0]== 2'b01) ); // FIXME
 
+reg ram_reply;
 
 always @(posedge clk25) begin
-	if(~cpu_oe_n & (seq == 3'b001))
-		latched_ram_data <= ram_a_data;
+    if (reset_in) begin
+        ram_reply <= 1'b0;
+    end
+    else if(~cpu_oe_n & (seq == 3'b001)) begin
+        latched_ram_data <= ram_a_data;
+        // generate reply for the cpu
+        ram_reply <= 1'b1;
+    end 
+    else if (~cpu_we_n & (seq[1:0] == 2'b01)) begin
+        ram_reply <= 1'b1;
+    end
+    else if (ram_reply && ~(cpu_rd|cpu_wt)) begin
+        // cycle ended, remove reply
+        ram_reply <= 1'b0;
+    end
 end
 
 always data_from_cpu <= cpu_out;

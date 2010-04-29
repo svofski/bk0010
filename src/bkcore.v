@@ -18,16 +18,28 @@ module bkcore(
  cpu_rdy, 
  wt, 
  rd, 
+ reply_i,
  in,
  out, 
  adr, 
  byte,
- ifetch, _cpu_adrs, kbd_data, kbd_available, kbd_ar2, read_kbd, 
- roll_out, full_screen_o,
- stopkey, keydown, tape_in, tape_out,
+ ifetch, 
+ _cpu_adrs, 
+ kbd_data, 
+ kbd_available, 
+ kbd_ar2, 
+ stopkey, 
+ keydown, 
+ read_kbd, 
+ roll_out, 
+ full_screen_o,
+ tape_in, 
+ tape_out,
  testselect,
  redleds,
- cpu_opcode, cpu_sp, cpu_registers);
+ cpu_opcode, 
+ cpu_sp, 
+ cpu_registers);
 
 input 			p_reset;
 input			m_clock;
@@ -45,6 +57,7 @@ input 			tape_in;
 output reg		tape_out;
 output 			wt;
 output 			rd;
+input           reply_i;
 input	[15:0] 	in;
 input       	cpu_rdy;
 output reg[15:0] 	out;
@@ -140,7 +153,7 @@ vm1 cpu(.clk(m_clock),
 
         .error_i(_cpu_error),      
 		.SYNC(cpu_sync),
-		.RPLY(cpu_rply),
+		.RPLY(reply_i | reg_reply/*cpu_rply*/),
 
         .DIN(_cpu_rd),          // o: data in
         .DOUT(mDOUT),           // o: data out
@@ -222,10 +235,9 @@ end
 //        ____  
 // ______/ RPLY
 //
-reg     cpu_rply;
+reg     reg_reply;
 wire    cpu_sync;
 
-reg     [2:0]   cpu_rply_delay;
 reg             syncsample;
 
 always @* out <= (_cpu_byte & _cpu_adrs[0])? {_cpu_dato[7:0], _cpu_dato[7:0]} :_cpu_dato;
@@ -233,16 +245,13 @@ always @* _cpu_wt <= mDOUT;
 
 
 always @(posedge m_clock) begin
-    if (p_reset) begin
-        cpu_rply_delay <= 2'b0;
-    end
     if (ce) begin
         syncsample <= cpu_sync;
         if (cpu_sync & ~syncsample) begin
-            cpu_rply <= 1'b1;
+            if (reg_space) reg_reply <= 1'b1;
         end
-        else if (~cpu_sync & syncsample) begin
-            cpu_rply <= 1'b0;
+        else if (~cpu_sync & syncsample & reg_reply) begin
+            reg_reply <= 1'b0;
         end
     end
 end
