@@ -336,10 +336,15 @@ always @(posedge clk) begin
 	end
 end
 
+//always @* begin
+//    bsync <= dati|dato|dati_r|dato_r;
+//    bdin <= dati | dati_r;
+//    bdout <= dato | dato_r;
+//end
 always @* begin
-    bsync <= dati|dato|dati_r|dato_r;
-    bdin <= dati | dati_r;
-    bdout <= dato | dato_r;
+    bsync <= dati|dato;
+    bdin <= dati;
+    bdout <= dato;
 end
 
 endmodule

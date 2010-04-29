@@ -22,7 +22,9 @@ module bkcore(
  out, 
  adr, 
  byte,
- ifetch, _cpu_adrs, kbd_data, kbd_available, kbd_ar2, read_kbd, roll_out, stopkey, keydown, tape_in, tape_out,
+ ifetch, _cpu_adrs, kbd_data, kbd_available, kbd_ar2, read_kbd, 
+ roll_out, full_screen_o,
+ stopkey, keydown, tape_in, tape_out,
  testselect,
  redleds,
  cpu_opcode, cpu_sp, cpu_registers);
@@ -36,6 +38,7 @@ input 			kbd_available;
 input 	[7:0] 	kbd_data;
 input			kbd_ar2;
 output 	[7:0] 	roll_out;
+output          full_screen_o;
 input 			stopkey;
 input			keydown;
 input 			tape_in;
@@ -158,6 +161,7 @@ vm1 cpu(.clk(m_clock),
 assign cpu_sp = cpu_registers[111:96];        	
 
 //----------------------
+`ifdef FUUU
 reg cpu_rply;
 wire cpu_sync;
 
@@ -189,10 +193,44 @@ always @(posedge m_clock) begin
 		end
 	end
 end
+`else
+reg     cpu_rply;
+wire    cpu_sync;
+
+reg     [2:0]   cpu_rply_delay;
+reg             syncsample;
+
+//always @* cpu_rply <= cpu_rply_delay[0];
+
+always @* out <= (_cpu_byte & _cpu_adrs[0])? {_cpu_dato[7:0], _cpu_dato[7:0]} :_cpu_dato;
+always @* _cpu_wt <= mDOUT;
+
+
+always @(posedge m_clock) begin
+    if (p_reset) begin
+        cpu_rply_delay <= 2'b0;
+        //_cpu_wt <= 0;
+    end
+    if (ce) begin
+        syncsample <= cpu_sync;
+        if (cpu_sync & ~syncsample) begin
+            //_cpu_wt <= mDOUT;
+            //out <= (_cpu_byte & _cpu_adrs[0])? {_cpu_dato[7:0], _cpu_dato[7:0]} :_cpu_dato;
+            cpu_rply <= 1'b1;
+        end
+        else if (~cpu_sync & syncsample) begin
+            cpu_rply <= 1'b0;
+        end
+        //cpu_rply_delay <= {1'b0,cpu_sync & ~syncsample,cpu_rply_delay[1]};
+    end
+end
+
+`endif
 //---------------------
 
 
 assign roll_out = roll[7:0];
+assign full_screen_o = roll[9];
 assign cpu_rdy_internal = cpu_rdy & ~bad_addr;
 assign _Arbiter_cpu_pri = _cpu_pswout[7:5];
 

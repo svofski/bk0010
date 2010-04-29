@@ -488,13 +488,13 @@ always @(shift_key_plus_code) begin
 	9'H058	: ascii <= 7'o017;	// LAT (CapsLock)
 	9'H158	: ascii <= 7'o016;	// RUS (Shift+CapsLock)
 
-	9'H005,	// POVT!
+	9'H005,	// POVT! (F1)
 	9'H105	: 
 			begin
 				autoar2 <= 1;
 				ascii <= 7'o201;
 			end
-
+    9'H078:   ascii <= 7'o014;  // SBR (F11)
 	default : ascii <= 7'H00;	// 0x00 used for unlisted characters.
 	endcase
 end

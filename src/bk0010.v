@@ -149,6 +149,7 @@ wire 			cpu_we_n;           // 0= cpu outputs data to ram
 wire 			read_kbd;
 
 wire [7:0] 		roll;
+wire            full_screen;
 
 reg [15:0] 		latched_ram_data;
 reg [15:0] 		data_from_cpu;
@@ -162,7 +163,14 @@ assign      cpu_pause_n = switch[7];
 always @*
     casex({hypercharge_i,cpu_pause_n,screen_x[3:0]}) 
 `ifdef DATAPATH_ON_NEGEDGE    
-    6'b11xxx0: ce_cpu <= screen_x[1:0] == 2'b10;
+    6'b110001,
+    6'b110011,
+    6'b110101,
+    6'b110111,
+    6'b111001,
+    6'b111011,
+    6'b111101,
+    6'b111111:  ce_cpu <= 1; 
     6'b010101:  ce_cpu <= 1;
 `else    
     6'b110100,
@@ -179,7 +187,7 @@ always @*
 
 assign      clk_cpu   = clk25;
 
-assign      ce_shifter_load = screen_x[3:0] == 4'b0000;
+assign      ce_shifter_load = screen_x[3:0] == 4'b0001; // seems to contradict with ce_cpu @ 0001, but it doesn't
 
 
 assign greenleds = {cpu_rdy, b0_debounced, kbd_available, usb_we_n, ram_we_n, cpu_we_n, cpu_wt, cntr[23]};
@@ -322,6 +330,7 @@ wire kbd_ar2;
     .kbd_available(kbd_available),
     .read_kbd(read_kbd),
     .roll_out(roll),
+    .full_screen_o(full_screen),
 	.stopkey(kbd_stopkey),
 	.keydown(kbd_keydown),
 	.kbd_ar2(kbd_ar2),
@@ -350,6 +359,8 @@ always @(posedge clk25) begin
 	end
 end  
 
+// active (0) when: cpu activity started on previous cycle, cpu is reading, (cpu_rdy is always 1)
+// this is to hold CPU address on the bus
 assign cpu_oe_n = ~(cpu_rd & (seq[2] == 0) & (seq[0] == 1) & cpu_rdy ); 
 assign cpu_we_n = ~(cpu_wt & (seq[1:0]== 2'b01) ); // FIXME
 
@@ -486,8 +497,10 @@ end
 wire show_char_line =  0;//((screen_y[9:4] == 6'b 100001) & ~screen_x[9]); // line after the valid screen
 wire char_bit;
 
+wire valid_full = valid && (full_screen || ~|screen_y[8:7]);
+
 always @(posedge clk25) begin
-if (valid) begin
+if (valid_full) begin
 		RED = R;
 		GREEN = G;
 		BLUE	=B;

@@ -77,10 +77,9 @@ module shifter(clk25,color,R,G,B,valid,data,x,load_i);
    reg [15:0] 	shiftreg;
 
    reg [1:0] colorbits;
+   /*
    reg active_pixel;
   
-   //assign load = (x[3:0] == 4'b0000);
-    
    always @(negedge clk25) begin   
    	if(load_i == 1) begin
 	 	if(x == 0)
@@ -89,7 +88,8 @@ module shifter(clk25,color,R,G,B,valid,data,x,load_i);
 			 active_pixel <= 0;
 	end
    end
-	
+   */
+   wire active_pixel = ~x[9];
 
     always @(posedge clk25) begin
         if(load_i == 1) begin

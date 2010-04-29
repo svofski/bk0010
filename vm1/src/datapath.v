@@ -84,7 +84,7 @@ always @* //@(ctrl[`CCTAKEN])
 
 
 // = ALU1
-always @* case (1'b1) // synopsys parallel_case 
+always @* case (1'b1) 
 	ctrl[`PCALU1]:		ALU1 <= PC;
 	ctrl[`SPALU1]:		ALU1 <= SP;
 	ctrl[`DSTALU1]:		ALU1 <= DST;
@@ -95,50 +95,50 @@ always @* case (1'b1) // synopsys parallel_case
 	endcase
 
 // = ALU2
-always @* case (1'b1) // synopsys parallel_case
+always @* case (1'b1) 
 	ctrl[`DSTALU2]: ALU2 <= DST;
 	ctrl[`SRCALU2]: ALU2 <= SRC;
 	ctrl[`OFS8ALU2]: ALU2 <= { {7{opcode[7]}}, opcode[7:0], 1'b0};
 	ctrl[`OFS6ALU2]: ALU2 <= { opcode[5:0], 1'b0 };
-	default:		ALU2 <= 16'b0;  // unsure
+	default:		ALU2 <= 16'b0;  // unlatch
 	endcase
 	
 // = REGsel	
 always @*
-	case (1'b1) // synopsys parallel_case
+	case (1'b1) 
 	ctrl[`REGSEL]: 	REGsel <= R[OPC[2:0]];
 	ctrl[`REGSEL2]:	REGsel <= R[OPC[8:6]];
-	//default:		REGsel <= 16'b0; // unsure
+	default:		REGsel <= 16'b0; // unlatch
 	endcase
 
 // = REGin
-always @* case (1'b1) // synopsys parallel_case
+always @* case (1'b1) 
 	ctrl[`ALUREG]:	REGin <= alu_out;
 	ctrl[`DSTREG]:	REGin <= DST;
 	ctrl[`SRCREG]:	REGin <= SRC;
 	ctrl[`ADRREG]:	REGin <= ADR;
 	ctrl[`PCREG]:	REGin <= R[7];
 	ctrl[`DBIREG]:	REGin <= dbi_r;
-	//default:		REGin <= 16'b0; // unsure
+	default:		REGin <= 16'b0; // unlatch
 	endcase
 
 // = dba
-always @* case (1'b1) // synopsys parallel_case
+always @* case (1'b1) 
 	ctrl[`DBAPC]:	dba <= PC;
 	ctrl[`DBASP]:	dba <= SP;
 	ctrl[`DBADST]:	dba <= DST;
 	ctrl[`DBASRC]:  dba <= SRC;
 	ctrl[`DBAADR]:	dba <= ADR;
-	default:		dba <= 16'h0; // a must
+	default:		dba <= 16'h0; // unlatch
 	endcase
 
 // = dbo
-always @* case (1'b1) // synopsys parallel_case
+always @* case (1'b1) 
 	ctrl[`DBOSEL]:	dbo <= REGsel;
 	ctrl[`DBODST]:	dbo <= DST;
 	ctrl[`DBOSRC]:	dbo <= SRC;
 	ctrl[`DBOADR]:	dbo <= ADR;	
-	default:		dbo <= 16'b0; // unsure
+	default:		dbo <= 16'b0; // unlatch
 	endcase
 	
 // @ opcode
@@ -205,7 +205,7 @@ always @(posedge clk or negedge reset_n)
 		SRC <= 0;
 	end
 	else if (ce) begin
-		case (1'b1) // synopsis parallel_case
+		case (1'b1) 
 		ctrl[`SELADR]:	ADR <= REGsel;
 		ctrl[`DSTADR]:	ADR <= DST;
 		ctrl[`SRCADR]:	ADR <= SRC;
@@ -217,7 +217,7 @@ always @(posedge clk or negedge reset_n)
 				DST <= psw;
 			end
 			
-		case (1'b1) // synopsis parallel_case
+		case (1'b1) 
 		ctrl[`DBIDST]:	DST <= dbi_r;
 		ctrl[`ALUDST]:	DST <= alu_out;
 		ctrl[`ALUDSTB]:	DST <= OPC_BYTE ? {DST[15:8],alu_out[7:0]} : alu_out;
@@ -225,7 +225,7 @@ always @(posedge clk or negedge reset_n)
 		//ctrl[`PSWDST]:  DST <= psw[7:0];
 		endcase
 		
-		case (1'b1) // synopsis parallel_case
+		case (1'b1) 
 		ctrl[`DBISRC]:  SRC <= dbi_r;
 		ctrl[`ALUSRC]:	SRC <= alu_out;
 		ctrl[`SELSRC]:	SRC <= REGsel;

@@ -153,14 +153,15 @@ always @(posedge clk or negedge reset_n) begin
                             // initiate instruction fetch
                             mbyte <= 0;
                             ifetch <= 1'b1;
-                            `dp(`DBAPC);
                             dati <= 1'b1;
+                            `dp(`DBAPC);
                         end
                     end
                 end
                 
                 // Instruction Decode #0
         FS_ID0:    begin
+
                     if (idc_unused) begin
                         `dp(`ERR);
                         state <= TRAP_SVC;
