@@ -194,13 +194,27 @@ always @(posedge m_clock) begin
 	end
 end
 `else
+
+//
+// A medium quick bus cycle: CPU notices RPLY on 3rd clock/ce
+//   _   _   _
+// _/ \_/ \_/ \
+// ___ __
+// ___X__valid addr
+//    ___
+// __/ dati
+//    ___
+// __/ DBAPC/SYNC
+//    ___
+// __/   \___ ~syncsample & sync
+//        ____  
+// ______/ RPLY
+//
 reg     cpu_rply;
 wire    cpu_sync;
 
 reg     [2:0]   cpu_rply_delay;
 reg             syncsample;
-
-//always @* cpu_rply <= cpu_rply_delay[0];
 
 always @* out <= (_cpu_byte & _cpu_adrs[0])? {_cpu_dato[7:0], _cpu_dato[7:0]} :_cpu_dato;
 always @* _cpu_wt <= mDOUT;
@@ -209,19 +223,15 @@ always @* _cpu_wt <= mDOUT;
 always @(posedge m_clock) begin
     if (p_reset) begin
         cpu_rply_delay <= 2'b0;
-        //_cpu_wt <= 0;
     end
     if (ce) begin
         syncsample <= cpu_sync;
         if (cpu_sync & ~syncsample) begin
-            //_cpu_wt <= mDOUT;
-            //out <= (_cpu_byte & _cpu_adrs[0])? {_cpu_dato[7:0], _cpu_dato[7:0]} :_cpu_dato;
             cpu_rply <= 1'b1;
         end
         else if (~cpu_sync & syncsample) begin
             cpu_rply <= 1'b0;
         end
-        //cpu_rply_delay <= {1'b0,cpu_sync & ~syncsample,cpu_rply_delay[1]};
     end
 end
 
