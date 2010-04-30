@@ -10,7 +10,7 @@
 
 `include "instr.h"
 
-module datapath(clk, ce, clkdbi, cedbi, reset_n, dbi, dbo, dba, opcode, psw, ctrl, alucc, taken, PC, ALU1, ALUOUT, SRC, DST, Rtest);
+module datapath(clk, ce, clkdbi, cedbi, reset_n, dbi, dbo, dba, opcode, psw, ctrl, ctrl2, alucc, taken, PC, ALU1, ALUOUT, SRC, DST, Rtest);
 input			clk, ce, clkdbi, cedbi, reset_n;
 input 	[15:0]	dbi;
 output reg[15:0]dbo;
@@ -19,6 +19,7 @@ output	[15:0]	opcode;
 output	[15:0]	psw;
 
 input	[127:0]	ctrl;
+input   [127:0] ctrl2;
 
 output	[3:0]	alucc;
 output			taken;
@@ -68,9 +69,10 @@ reg taken; // latch
 
 reg [15:0] dbi_r;
 
-always @(posedge clkdbi) 
-    if (cedbi) 
-        dbi_r <= dbi;
+//always @(posedge clkdbi) 
+//    if (cedbi) 
+//        dbi_r <= dbi;
+always @* dbi_r <= dbi;
 
 always @* //@(ctrl[`CCTAKEN])
     taken = 	( ({OPC_BYTE,OPC[10:9]}==0)                             )|
@@ -84,7 +86,7 @@ always @* //@(ctrl[`CCTAKEN])
 
 
 // = ALU1
-always @* case (1'b1) 
+always @* case (1'b1) // synopsys parallel_case 
 	ctrl[`PCALU1]:		ALU1 <= PC;
 	ctrl[`SPALU1]:		ALU1 <= SP;
 	ctrl[`DSTALU1]:		ALU1 <= DST;
@@ -95,12 +97,12 @@ always @* case (1'b1)
 	endcase
 
 // = ALU2
-always @* case (1'b1) 
+always @* case (1'b1) // synopsys parallel_case
 	ctrl[`DSTALU2]: ALU2 <= DST;
 	ctrl[`SRCALU2]: ALU2 <= SRC;
 	ctrl[`OFS8ALU2]: ALU2 <= { {7{opcode[7]}}, opcode[7:0], 1'b0};
 	ctrl[`OFS6ALU2]: ALU2 <= { opcode[5:0], 1'b0 };
-	default:		ALU2 <= 16'b0;  // unlatch
+	default:		ALU2 <= 16'b0;  // unsure
 	endcase
 	
 // = REGsel	
@@ -108,7 +110,7 @@ always @*
 	case (1'b1) 
 	ctrl[`REGSEL]: 	REGsel <= R[OPC[2:0]];
 	ctrl[`REGSEL2]:	REGsel <= R[OPC[8:6]];
-	default:		REGsel <= 16'b0; // unlatch
+	default:		REGsel <= 16'b0; // unsure
 	endcase
 
 // = REGin
@@ -119,26 +121,26 @@ always @* case (1'b1)
 	ctrl[`ADRREG]:	REGin <= ADR;
 	ctrl[`PCREG]:	REGin <= R[7];
 	ctrl[`DBIREG]:	REGin <= dbi_r;
-	default:		REGin <= 16'b0; // unlatch
+	default:		REGin <= 16'b0; // unsure
 	endcase
 
 // = dba
-always @* case (1'b1) 
+always @* case (1'b1) // synopsys parallel_case
 	ctrl[`DBAPC]:	dba <= PC;
 	ctrl[`DBASP]:	dba <= SP;
 	ctrl[`DBADST]:	dba <= DST;
 	ctrl[`DBASRC]:  dba <= SRC;
 	ctrl[`DBAADR]:	dba <= ADR;
-	default:		dba <= 16'h0; // unlatch
+	default:		dba <= 16'h0; // a must
 	endcase
 
 // = dbo
-always @* case (1'b1) 
+always @* case (1'b1) // synopsys parallel_case
 	ctrl[`DBOSEL]:	dbo <= REGsel;
 	ctrl[`DBODST]:	dbo <= DST;
 	ctrl[`DBOSRC]:	dbo <= SRC;
 	ctrl[`DBOADR]:	dbo <= ADR;	
-	default:		dbo <= 16'b0; // unlatch
+	default:		dbo <= 16'b0; // unsure
 	endcase
 	
 // @ opcode
@@ -183,9 +185,9 @@ always @(posedge clk or negedge reset_n)
 `endif
 	end else 
 	if (ce) begin
-		if (ctrl[`ALUPC]) 	R[7] <= alu_out;
+		if (ctrl[`ALUPC]) 	begin R[7] <= alu_out; $display("alu1=%o inc2=%o alu_out=%o", ALU1, ctrl[`INC2], alu_out); end
 		if (ctrl[`DBIPC]) 	R[7] <= dbi_r;
-		if (ctrl[`SETPCROM])R[7] <= 16'o 100000;
+		if (ctrl[`SETPCROM])begin R[7] <= 16'o 100000; end
 		if (ctrl[`FPPC])	R[7] <= R[5];
 		if (ctrl[`SELPC])	R[7] <= REGsel;
 		if (ctrl[`ADRPC])	R[7] <= ADR;
@@ -205,7 +207,7 @@ always @(posedge clk or negedge reset_n)
 		SRC <= 0;
 	end
 	else if (ce) begin
-		case (1'b1) 
+		case (1'b1) // synopsis parallel_case
 		ctrl[`SELADR]:	ADR <= REGsel;
 		ctrl[`DSTADR]:	ADR <= DST;
 		ctrl[`SRCADR]:	ADR <= SRC;
@@ -217,7 +219,7 @@ always @(posedge clk or negedge reset_n)
 				DST <= psw;
 			end
 			
-		case (1'b1) 
+		case (1'b1) // synopsis parallel_case
 		ctrl[`DBIDST]:	DST <= dbi_r;
 		ctrl[`ALUDST]:	DST <= alu_out;
 		ctrl[`ALUDSTB]:	DST <= OPC_BYTE ? {DST[15:8],alu_out[7:0]} : alu_out;
@@ -225,7 +227,7 @@ always @(posedge clk or negedge reset_n)
 		//ctrl[`PSWDST]:  DST <= psw[7:0];
 		endcase
 		
-		case (1'b1) 
+		case (1'b1) // synopsis parallel_case
 		ctrl[`DBISRC]:  SRC <= dbi_r;
 		ctrl[`ALUSRC]:	SRC <= alu_out;
 		ctrl[`SELSRC]:	SRC <= REGsel;

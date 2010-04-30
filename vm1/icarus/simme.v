@@ -1,4 +1,4 @@
-`define NOSLOWRPLY
+`define NOMEDRPLY
 
 module simme;
 
@@ -229,6 +229,7 @@ vm1 cpu
     //t0 = top.cpu.cpu.rs232.sender.send_buf&8'h7f;
     //if(t0 == 8'h0d) t0 = 8'h0a;
     //$display("cpu_din:%x cpu_a:%x", cpu_d_in, cpu_a_o);
+    $display("cpu_rd=%d", cpu.DIN);
     $display("pc:%o s/r:%x%x if0:%x %s%s di:%o do:%o a:%o opc:%o s:%d/%b/%s R1-6:%o,%o,%o,%o %o", 
                 cpu.PC, cpu_sync, cpu_rply, cpu_ifetch,
                 cpu_rd?"R":" ", cpu_we?"W":" ", 

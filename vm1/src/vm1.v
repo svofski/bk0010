@@ -15,7 +15,7 @@
 
 // 35ns/clk for negedge
 // 15ns/clk for posedge/2
-//`define DATAPATH_ON_NEGEDGE
+`define DATAPATH_ON_NEGEDGE
 
 `include "opc.h"
 `include "instr.h"
@@ -68,7 +68,8 @@ module vm1(clk,
            op_decoded,		
            test_control,
            test_bus,
-           Rtest,
+           dpcmd,
+           //Rtest,
            taken
            );
 
@@ -120,7 +121,8 @@ output 	[7:0]	idccat;
 output	[15:0]	psw;
 output			taken;
 output	[15:0]	OPCODE;
-output	[143:0]	Rtest;
+output  [127:0] dpcmd;
+//output	[143:0]	Rtest;
 
 assign ALUCC = alucc;
 assign idccat = {idc_unused,idc_cco,idc_bra,idc_nof,idc_rsd,idc_dop,idc_sop};
@@ -165,6 +167,7 @@ end
 `endif
 
 wire	[127:0]			dpcmd;
+wire	[127:0]			dpcmd2;
 wire	[15:0]			opcode;
 output	[`IDC_NOPS:0] 	op_decoded;
 wire 					idc_cco, idc_bra, idc_nof, idc_rsd, idc_dop, idc_sop, idc_unused;
@@ -180,7 +183,7 @@ wire					controlr_byte;
 `ifdef DATAPATH_ON_NEGEDGE
 wire	ctl_ce = ce,
 		dp_ce = ce;
-wire	dp_clk  = ~clk;
+wire	dp_clk  = clk;
 wire    dbi_clk = clk;
 wire    cedbi = 1;
 `else
@@ -211,6 +214,7 @@ control11 controlr(
 	.ce(ctl_ce),
 	.reset_n(reset_n), 
 	.dpcmd(dpcmd),
+	.dpcmd2(dpcmd2),
 	.ierror(error_to_control),
 	.ready(RPLY),
 	.dati(controlr_dati),
@@ -252,6 +256,7 @@ datapath dp(
 	.opcode(opcode),
 	.psw(psw),
 	.ctrl(dpcmd),
+	.ctrl2(dpcmd2),
 	.alucc(alucc),
 	.taken(dp_taken),
 	.PC(PC),
@@ -259,7 +264,8 @@ datapath dp(
 	.ALUOUT(ALUOUT),
 	.SRC(SRC),
 	.DST(DST),
-	.Rtest(Rtest));
+	//.Rtest(Rtest)
+	);
 	
 // bus thingy
 wire 	dato = controlr_dato;
@@ -316,6 +322,19 @@ input       b;
 
 output      complete;
 
+parameter BUS_TIMEOUT = 63;
+
+parameter [4:0]
+                S_IDLE = 0,
+				S_R0 = 1,
+                S_R1 = 2,
+                S_W0 = 3,
+                S_W1 = 4,
+                S_FINISHED = 5,
+                S_BUSERROR= 6;
+
+reg [6:0] state;
+
 assign bbsy = bsync;
 
 assign berror = 0;
@@ -323,9 +342,18 @@ assign berror = 0;
 reg [5:0] timeout;
 
 always @* bwtbt <= b;
+/*
+always @* begin
+    bsync <= dati|dato;
+    bdin <= dati;
+    bdout <= dato;
+end
+*/
+
 
 reg dati_r, dato_r;
 
+/*
 always @(posedge clk) begin
 	if (breply) begin
 		dati_r <= 0;
@@ -336,16 +364,116 @@ always @(posedge clk) begin
 	end
 end
 
-//always @* begin
-//    bsync <= dati|dato|dati_r|dato_r;
-//    bdin <= dati | dati_r;
-//    bdout <= dato | dato_r;
-//end
+always @* begin
+    bsync <= dati|dato|dati_r|dato_r;
+    bdin <= dati | dati_r;
+    bdout <= dato | dato_r;
+end
+*/
+
 always @* begin
     bsync <= dati|dato;
     bdin <= dati;
     bdout <= dato;
 end
 
+/*
+always @* begin
+	if (~reset_n | ~(dati|dato)) begin
+		bsync <= 1'b0;
+		bdin <= 1'b0;
+		bdout <= 1'b0;
+	end else begin
+		case (1'b1) 
+		dati:	begin
+				bsync <= 1'b1;
+				bdin <= 1'b1;
+				bdout <= 1'b0;
+				end
+		dato:	begin
+				bsync <= 1'b1;
+				bdin <= 1'b0;
+				bdout <= 1'b1;
+				end
+		endcase
+	end
+end
+
+reg syncsamp;
+reg error;
+always @(posedge clk or negedge reset_n) begin
+	if (~reset_n) begin
+		error <= 1'b0;
+		timeout <= BUS_TIMEOUT;
+	end else if (ce) begin
+		syncsamp <= bsync;
+		
+		//if (~syncsamp & bsync) 	timeout <= BUS_TIMEOUT;
+		if (~bsync) 	timeout <= BUS_TIMEOUT;
+		if (bsync && timeout != 0) timeout <= timeout - 1'b 1;
+	end
+end
+*/
+
+/*
+always @(posedge clk or negedge reset_n) begin
+    if (!reset_n) begin
+		timeout <= 0;
+        state <= S_IDLE;
+    end 
+	else if (ce) begin
+		
+		if (timeout != 0) timeout <= timeout - 1'b 1;
+
+		case (state)
+			S_IDLE: 
+				begin
+					bsync <= 1'b0;
+					bdin <= 1'b0;
+					bdout <= 1'b0;
+					timeout <= BUS_TIMEOUT;
+					
+					if (dati) begin
+						state <= S_R1;
+						bsync <= 1'b1;
+						bdin  <= 1'b1;
+						bdout <= 1'b0;						
+					end 
+					else if (dato) 	begin
+						bsync <= 1'b1;
+						bdin  <= 1'b0;
+						bdout <= 1'b1;
+						state <= S_W1;
+					end 
+				end
+
+			S_R1: begin
+					if (breply) begin
+						state <= S_IDLE;
+						bsync <= 1'b0;
+						bdin <= 1'b0;
+						bdout <= 1'b0;
+					end
+					else if (timeout == 0) 	state <= S_BUSERROR;
+				end
+						
+			S_W1: begin
+					if (breply)	begin
+						state <= S_IDLE;
+						bsync <= 1'b0;
+						bdin <= 1'b0;
+						bdout <= 1'b0;
+					end
+					else if (timeout == 0) 	state <= S_BUSERROR;					
+				end
+				
+			S_BUSERROR:
+				begin
+					state <= S_IDLE;
+				end
+		endcase
+    end
+end
+*/
 endmodule
 
