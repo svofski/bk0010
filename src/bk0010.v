@@ -360,8 +360,6 @@ always @(posedge clk25) begin
 	end
 end  
 
-// active (0) when: cpu activity started on previous cycle, cpu is reading, (cpu_rdy is always 1)
-// this is to hold CPU address on the bus
 //   _   _   _   _   _   _   _   _
 // _/0\_/1\_/2\_/3\_/4\_/5\_/6\_/7\_    
 //    _______________
@@ -380,6 +378,8 @@ assign cpu_we_n = ~(cpu_wt & (seq[1:0]== 2'b01) ); // FIXME
 
 reg ram_reply;
 
+// working on negedge allows to latch ram data on the first cycle after seq is loaded
+// posedge is prettier
 always @(posedge clk25) begin
     if (reset_in) begin
         ram_reply <= 1'b0;
@@ -465,6 +465,7 @@ shifter shifter(.clk25(clk25),.color(color),.R(R),.G(G),.B(B),
 assign RST_IN = 1'b0;
 assign vga_addr = { screen_y[8:1] - 'o0330 + roll , screen_x[8:4]};
 
+/*
 reg [15:0] ram_addr;
 always @*
 	casex ({~(cpu_oe_n & cpu_we_n),~(usb_we_n & usb_oe_n)})
@@ -480,15 +481,16 @@ always @*
 		2'bx1:		ram_out_data <= usb_a_data;
 		default: 	ram_out_data <= data_from_cpu;
 	endcase
-
+*/
 	
-/*
-assign ram_addr = ~(cpu_oe_n & cpu_we_n) ? {1'b0, cpu_adr[15:1]}: // cpu has top priority
-	~(usb_we_n & usb_oe_n)? usb_addr:			// usb if needed 
-	 {5'b00001, vga_addr};
+
+assign ram_addr = 
+    ce_shifter_load ? {5'b00001, vga_addr} :
+	~(usb_we_n & usb_oe_n)? usb_addr:			
+    {1'b0, cpu_adr[15:1]};
 
 wire [15:0] ram_out_data = ~cpu_we_n ? data_from_cpu: ~usb_we_n ? usb_a_data : 16'h ffff;
-*/
+
 
 	
 assign ram_a_ce = 0; // always on
