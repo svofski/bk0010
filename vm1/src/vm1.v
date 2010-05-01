@@ -263,7 +263,7 @@ datapath dp(
 	.ALU1(ALU1),
 	.ALUOUT(ALUOUT),
 	.SRC(SRC),
-	.DST(DST),
+	.DST(DST)
 	//.Rtest(Rtest)
 	);
 	
