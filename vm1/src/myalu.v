@@ -51,7 +51,7 @@ endmodule
 module myalu(in1,in2,ni,ci,mbyte,final_result,ccmask,final_flags, 
          add, adc,sub,sbc,inc2,dec2, inc,dec, clr,
          com,neg,tst,ror,rol,asr,asl,sxt,mov,cmp,
-         bit,bic,bis,exor,swab,
+         bit_,bic,bis,exor,swab,
          cc                                         // mystery output, never used
          );
    
@@ -59,7 +59,7 @@ module myalu(in1,in2,ni,ci,mbyte,final_result,ccmask,final_flags,
    input [15:0] in2;
    input    ni,ci,mbyte;
    input    add, adc,sub,sbc,inc2,dec2,inc,dec, clr,com,neg;
-   input    tst,ror,rol,asr,asl,sxt,mov,cmp,bit,bic,bis,exor,swab;
+   input    tst,ror,rol,asr,asl,sxt,mov,cmp,bit_,bic,bis,exor,swab;
     
    output [3:0] final_flags;
    output [3:0] ccmask;
@@ -89,12 +89,12 @@ module myalu(in1,in2,ni,ci,mbyte,final_result,ccmask,final_flags,
 //(add|adc|sub|sbc|clr|com|neg|test|ror|rol|asr|asl|cmp)? 4'hf:
    assign ccmask = (inc2|dec2)? 4'b0000:
       (sxt)? 4'b0110:
-      (inc|dec|mov|bit|bic|bis )? 4'b1110:
+      (inc|dec|mov|bit_|bic|bis )? 4'b1110:
       (exor )? 4'b1110:
        4'b1111; // all the rest
 
    assign cc = (add| adc|sub|sbc|inc|dec| clr|com|neg|
-        tst|ror|rol|asr|asl|sxt|mov|cmp|bit|bic|bis|exor|swab);
+        tst|ror|rol|asr|asl|sxt|mov|cmp|bit_|bic|bis|exor|swab);
     
    
 
@@ -209,7 +209,7 @@ module myalu(in1,in2,ni,ci,mbyte,final_result,ccmask,final_flags,
                 end
             end
   
-        bit: begin
+        bit_: begin
                 res = 0; 
                 if(mbyte)
                     xflags = {bit_res[7], (bit_res[7:0]==0)?1'b1:1'b0, 2'b0};

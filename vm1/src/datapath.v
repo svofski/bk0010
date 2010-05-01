@@ -56,13 +56,13 @@ reg  [15:0] ADR;
 reg  [15:0] ALU1, ALU2;
 reg	 [15:0]	REGsel;
 
-reg	 [2:0]	priority;
+reg	 [2:0]	prio;
 reg			trapbit;
 reg			fn, fz, fv, fc;
 
 assign	opcode = {OPC_BYTE,OPC};
 
-assign 	psw = {priority,trapbit,fn,fz,fv,fc};
+assign 	psw = {prio,trapbit,fn,fz,fv,fc};
 
 
 reg taken; // latch
@@ -245,16 +245,16 @@ always @(posedge clk or negedge reset_n)
 // @ ps
 always @(posedge clk) 
 	if (~reset_n) begin
-        priority <= 0;
+        prio <= 0;
         trapbit <= 0;
 	end else if (ce) begin
 		case (1'b1) // synopsys parallel_case
 		ctrl[`DBIPS], 	
 		ctrl[`VECTORPS]:
-			{priority,trapbit,fn,fz,fv,fc} <= dbi_r[7:0];
+			{prio,trapbit,fn,fz,fv,fc} <= dbi_r[7:0];
 			
 		ctrl[`DSTPSW]:
-			{priority,fn,fz,fv,fc} <= {DST[7:5],DST[3:0]};
+			{prio,fn,fz,fv,fc} <= {DST[7:5],DST[3:0]};
 			
 		ctrl[`TSTSRC]:
 			{fn,fz} <= {SRC[15],~|SRC};
@@ -274,7 +274,7 @@ always @(posedge clk)
 				if (OPC[1]) fv <= OPC[4];
 				if (OPC[0]) fc <= OPC[4];
 			end
-		ctrl[`SPL]:	priority <= OPC[2:0];
+		ctrl[`SPL]:	prio <= OPC[2:0];
 		endcase
 	end
 
@@ -324,7 +324,7 @@ myalu ALU(
 	.sxt (ctrl[`SXT ]),
 	.mov (ctrl[`MOV ]),
 	.cmp (ctrl[`CMP ]),
-    .bit (ctrl[`BIT ]),
+    .bit_ (ctrl[`BIT ]),
 	.bic (ctrl[`BIC ]),
 	.bis (ctrl[`BIS ]),
 	.exor(ctrl[`EXOR]),

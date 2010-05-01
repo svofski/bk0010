@@ -238,7 +238,7 @@ vm1 cpu
                 cpu.psw[3:0],
                 cpu.psw[4] ? "t":"_",
                 cpu.dp.R[1], cpu.dp.R[2], cpu.dp.R[3],
-                cpu.dp.R[4], cpu.dp.R[5], cpu.dp.R[6], 
+                cpu.dp.R[4], cpu.dp.R[5], cpu.dp.R[6] 
                 //top.cpu.dp.psw,
                 //ram1[top.cpu.dp.R[6]/2]
                 //top.cpu.op_decoded
