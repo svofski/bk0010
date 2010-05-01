@@ -162,7 +162,6 @@ assign      cpu_pause_n = switch[7];
 
 always @*
     casex({hypercharge_i,cpu_pause_n,screen_x[3:0]}) 
-`ifdef DATAPATH_ON_NEGEDGE    
     6'b110001,
     6'b110011,
     6'b110101,
@@ -172,16 +171,6 @@ always @*
     6'b111101,
     6'b111111:  ce_cpu <= 1; 
     6'b010101:  ce_cpu <= 1;
-`else    
-    6'b110100,
-    6'b110101,
-    6'b111000,
-    6'b111001,
-    6'b111100,
-    6'b111101:   ce_cpu <= 1;
-    6'b010100,
-    6'b010101:   ce_cpu <= 1;
-`endif    
     default:    ce_cpu <= 0;
     endcase
 

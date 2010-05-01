@@ -109,7 +109,7 @@ wire     AUTO_DEC = dp_opcode[5];
 wire         BYTE = dp_opcode[15];
 wire        TRACE = psw[4]; 
 
-`define dp(x) dpcmd[x] <= 1'b1
+`define dp(x) dpcmd[x] = 1'b1
 
 `define dp1(a)      dpcmd = 1<<a
 `define dp2(a,b)    dpcmd = (1<<a)|(1<<b)
@@ -520,12 +520,12 @@ end
 always @(reset_n or state) begin
     if (!reset_n) begin
         {dati,dato,iako,initq,mbyte} <= 0;
-        dpcmd <= 128'b0;
+        dpcmd = 128'b0;
         //`dp(`SETPCROM);
     end
     else begin
         {dati,dato} <= 0; //-- this makes dati, dato a latch..
-        dpcmd <= 128'b0; 
+        dpcmd = 128'b0; 
         initq <= 1'b0;
         iako <= 1'b0;
         mbyte <= 0;
@@ -539,7 +539,6 @@ always @(reset_n or state) begin
         FS_IF0:    begin 
                     //$display("IF0 dati=%d ready=%d ce=%d clk=%d", dati, ready, ce, clk);
                     if (TRACE & ~idcop[`drtt]) begin            // if the last instruction was RTT
-                        //dpcmd <= 128'b0;
                         `dp(`BPT);        
                     end 
                     else begin

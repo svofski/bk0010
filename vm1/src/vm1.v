@@ -68,8 +68,8 @@ module vm1(clk,
            op_decoded,		
            test_control,
            test_bus,
-           dpcmd,
-           //Rtest,
+           //dpcmd,
+           Rtest,
            taken
            );
 
@@ -121,8 +121,8 @@ output 	[7:0]	idccat;
 output	[15:0]	psw;
 output			taken;
 output	[15:0]	OPCODE;
-output  [127:0] dpcmd;
-//output	[143:0]	Rtest;
+//output  [127:0] dpcmd;
+output	[143:0]	Rtest;
 
 assign ALUCC = alucc;
 assign idccat = {idc_unused,idc_cco,idc_bra,idc_nof,idc_rsd,idc_dop,idc_sop};
