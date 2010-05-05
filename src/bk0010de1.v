@@ -14,6 +14,8 @@
 // For BK-0010 licensing terms see README
 // ==================================================================================
 
+// this is a user-side cloning test
+
 `default_nettype none
 
 `define WITH_DE1_JTAG
