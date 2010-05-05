@@ -196,7 +196,7 @@ control11 controlr(
 	.reset_n(reset_n), 
 	.dpcmd(dpcmd),
 	.ierror(error_to_control),
-	.ready(RPLY),
+	.ready_i(RPLY),
 	.dati_o(controlr_dati),
 	.dato_o(controlr_dato),
 	.mbyte(controlr_byte),

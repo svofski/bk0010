@@ -17,7 +17,7 @@ module     control11(clk,
                 reset_n, 
                 dpcmd, 
                 ierror, 
-                ready, 
+                ready_i, 
                 dati_o,
                 dato_o,
                 mbyte, 
@@ -43,7 +43,8 @@ input               clk;
 input               ce;
 input               reset_n;
 output reg [127:0]  dpcmd;
-input               ierror, ready;
+input               ierror;
+input               ready_i;
 input               dp_taken;
 input     [15:0]    dp_opcode;
 input      [3:0]    dp_alucc;
@@ -113,6 +114,20 @@ wire        TRACE = psw[4];
 
 reg        rsub;
 
+// stretched ready
+
+reg         ready_r;
+always @(posedge clk)
+    if (!reset_n) 
+        ready_r <= 0;
+    else 
+        if (ce) ready_r <= ready_i;
+    
+reg         ready;
+always @*
+        ready = ready_r | ready_i;
+//wire        ready = /*ready_r | */ready_i;    
+
 reg         dati, dato;
 
 reg        dati_r;
@@ -165,10 +180,6 @@ always @(negedge clk)
 // synthesis translate_on 
 
 always @* begin
-    if (!reset_n) begin
-        next = BOOT_0;
-    end
-    else
     begin
         {dati,dato} = 0;
         dati_of1 = 0;
@@ -198,6 +209,7 @@ always @* begin
                         next = TRAP_SVC;    
                     end 
                     else begin
+                        `dp(`DBAPC);
                         if (ierror) begin
                             next = TRAP_SVC;
                             `dp(`BUSERR);
@@ -205,21 +217,15 @@ always @* begin
                             // accept data (opcode)
                             next = FS_ID0;
                             //$display("IF0: ready, state=%d next=%d ce=%d", state, next, ce);
-                            //dati = 1'b1;
-                            `dp(`DBAPC);
-                            
                             `dp(`PCALU1);
                             `dp(`INC2);
                             `dp(`ALUPC);
-                            //`dp(`SETOPC);
+                            `dp(`SETOPC);
                         end  else begin
                             // initiate instruction fetch
                             mbyte = 0;
                             ifetch = 1'b1;
                             dati = 1'b1;
-                            `dp(`DBAPC);
-                            `dp(`SETOPC);
-                            //next = FS_IF0;
                         end
                     end
                 end
