@@ -10,7 +10,7 @@
 
 `include "instr.h"
 
-module datapath(clk, ce, clkdbi, cedbi, reset_n, dbi, dbo, dba, opcode, psw, ctrl, ctrl2, alucc, taken, PC, ALU1, ALUOUT, SRC, DST, Rtest);
+module datapath(clk, ce, clkdbi, cedbi, reset_n, dbi, dbo, dba, opcode, psw, ctrl, alucc, taken, PC, ALU1, ALUOUT, SRC, DST, Rtest);
 input			clk, ce, clkdbi, cedbi, reset_n;
 input 	[15:0]	dbi;
 output reg[15:0]dbo;
@@ -19,7 +19,6 @@ output	[15:0]	opcode;
 output	[15:0]	psw;
 
 input	[127:0]	ctrl;
-input   [127:0] ctrl2;
 
 output	[3:0]	alucc;
 output			taken;
@@ -74,6 +73,10 @@ reg [15:0] dbi_r;
 //        dbi_r <= dbi;
 always @* dbi_r <= dbi;
 
+initial begin
+ // $monitor("dbi_r=%o", dbi_r);
+end
+
 always @* //@(ctrl[`CCTAKEN])
     taken = 	( ({OPC_BYTE,OPC[10:9]}==0)                             )|
 				( ({OPC_BYTE,OPC[10:9]}==1) & (~OPC[8] ^ fz )           )|
@@ -108,7 +111,7 @@ always @* case (1'b1) // synopsys parallel_case
 // = REGsel	
 always @*
 	case (1'b1) 
-	ctrl[`REGSEL]: 	REGsel <= R[OPC[2:0]];
+	ctrl[`REGSEL]: 	begin REGsel <= R[OPC[2:0]]; /*$strobe("REGsel=R[%d]", OPC[2:0]);*/ end
 	ctrl[`REGSEL2]:	REGsel <= R[OPC[8:6]];
 	default:		REGsel <= 16'b0; // unsure
 	endcase
@@ -120,7 +123,7 @@ always @* case (1'b1)
 	ctrl[`SRCREG]:	REGin <= SRC;
 	ctrl[`ADRREG]:	REGin <= ADR;
 	ctrl[`PCREG]:	REGin <= R[7];
-	ctrl[`DBIREG]:	REGin <= dbi_r;
+	ctrl[`DBIREG]:	begin REGin <= dbi_r; /* $display("REGin=%o", dbi_r); */ end
 	default:		REGin <= 16'b0; // unsure
 	endcase
 
@@ -128,10 +131,10 @@ always @* case (1'b1)
 always @* case (1'b1) // synopsys parallel_case
 	ctrl[`DBAPC]:	dba <= PC;
 	ctrl[`DBASP]:	dba <= SP;
-	ctrl[`DBADST]:	dba <= DST;
+	ctrl[`DBADST]:	begin dba <= DST; /*$display("DBADST %o", DST); */ end
 	ctrl[`DBASRC]:  dba <= SRC;
 	ctrl[`DBAADR]:	dba <= ADR;
-	default:		dba <= 16'h0; // a must
+	default:		begin dba <= 16'h0; /* $display("DBA default");*/ end // a must
 	endcase
 
 // = dbo
@@ -185,12 +188,12 @@ always @(posedge clk or negedge reset_n)
 `endif
 	end else 
 	if (ce) begin
-		if (ctrl[`ALUPC]) 	begin R[7] <= alu_out; $display("alu1=%o inc2=%o alu_out=%o", ALU1, ctrl[`INC2], alu_out); end
+		if (ctrl[`ALUPC]) 	begin R[7] <= alu_out; /*$display("alu1=%o inc2=%o alu_out=%o", ALU1, ctrl[`INC2], alu_out);*/ end
 		if (ctrl[`DBIPC]) 	R[7] <= dbi_r;
 		if (ctrl[`SETPCROM])begin R[7] <= 16'o 100000; end
 		if (ctrl[`FPPC])	R[7] <= R[5];
 		if (ctrl[`SELPC])	R[7] <= REGsel;
-		if (ctrl[`ADRPC])	R[7] <= ADR;
+		if (ctrl[`ADRPC])	begin R[7] <= ADR; /*$display("ADRPC: PC=%o", ADR);*/ end
 		if (ctrl[`ALUSP])	R[6] <= alu_out;
 		if (ctrl[`DBIFP])	R[5] <= dbi_r;
 		if (ctrl[`SETREG])	R[OPC[2:0]] <= REGin;
@@ -209,7 +212,7 @@ always @(posedge clk or negedge reset_n)
 	else if (ce) begin
 		case (1'b1) // synopsis parallel_case
 		ctrl[`SELADR]:	ADR <= REGsel;
-		ctrl[`DSTADR]:	ADR <= DST;
+		ctrl[`DSTADR]:	begin ADR <= DST; /* $display("DSTADR: ADR=%o", DST); */ end
 		ctrl[`SRCADR]:	ADR <= SRC;
 		ctrl[`CLRADR]:	ADR <= 0;
 		endcase
@@ -220,17 +223,17 @@ always @(posedge clk or negedge reset_n)
 			end
 			
 		case (1'b1) // synopsis parallel_case
-		ctrl[`DBIDST]:	DST <= dbi_r;
+		ctrl[`DBIDST]:	begin DST <= dbi_r;/* $display("DBIDST: DST=%o", dbi_r);*/ end
 		ctrl[`ALUDST]:	DST <= alu_out;
 		ctrl[`ALUDSTB]:	DST <= OPC_BYTE ? {DST[15:8],alu_out[7:0]} : alu_out;
-		ctrl[`SELDST]:	DST <= REGsel;
+		ctrl[`SELDST]:	begin DST <= REGsel; /*$display("SELDST: DST <= %o", REGsel);*/ end
 		//ctrl[`PSWDST]:  DST <= psw[7:0];
 		endcase
 		
 		case (1'b1) // synopsis parallel_case
-		ctrl[`DBISRC]:  SRC <= dbi_r;
-		ctrl[`ALUSRC]:	SRC <= alu_out;
-		ctrl[`SELSRC]:	SRC <= REGsel;
+		ctrl[`DBISRC]:  begin SRC <= dbi_r; /*$display("DBISRC: SRC=%o",dbi_r);*/ end
+		ctrl[`ALUSRC]:	begin SRC <= alu_out; /*$display("ALUSRC: src=%o", alu_out);*/ end
+		ctrl[`SELSRC]:	begin SRC <= REGsel; /*$display("SELSRC: SRC <= %o", REGsel);*/ end
 		
 		ctrl[`BUSERR]:	SRC <= `TRAP_BUS;
 		ctrl[`SEGERR]:	SRC <= `TRAP_SEG;

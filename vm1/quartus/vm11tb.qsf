@@ -49,7 +49,6 @@ set_global_assignment -name VERILOG_FILE ../src/testbench/ram1024x16.v
 set_global_assignment -name MIF_FILE ../src/testbench/ramski.mif
 set_global_assignment -name INCREMENTAL_VECTOR_INPUT_SOURCE vm1.vwf
 set_global_assignment -name END_TIME "2 us"
-set_global_assignment -name USE_CONFIGURATION_DEVICE ON
 set_global_assignment -name CYCLONEII_OPTIMIZATION_TECHNIQUE SPEED
 set_global_assignment -name MISC_FILE "S:/svofski-posedge/vm1/quartus/vm11tb.dpf"
 set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0

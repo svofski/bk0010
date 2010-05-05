@@ -167,7 +167,6 @@ end
 `endif
 
 wire	[127:0]			dpcmd;
-wire	[127:0]			dpcmd2;
 wire	[15:0]			opcode;
 output	[`IDC_NOPS:0] 	op_decoded;
 wire 					idc_cco, idc_bra, idc_nof, idc_rsd, idc_dop, idc_sop, idc_unused;
@@ -214,11 +213,10 @@ control11 controlr(
 	.ce(ctl_ce),
 	.reset_n(reset_n), 
 	.dpcmd(dpcmd),
-	.dpcmd2(dpcmd2),
 	.ierror(error_to_control),
 	.ready(RPLY),
-	.dati(controlr_dati),
-	.dato(controlr_dato),
+	.dati_o(controlr_dati),
+	.dato_o(controlr_dato),
 	.mbyte(controlr_byte),
 	.ifetch(IFETCH),
 	.psw(psw),
@@ -256,7 +254,6 @@ datapath dp(
 	.opcode(opcode),
 	.psw(psw),
 	.ctrl(dpcmd),
-	.ctrl2(dpcmd2),
 	.alucc(alucc),
 	.taken(dp_taken),
 	.PC(PC),
