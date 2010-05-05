@@ -171,12 +171,12 @@ end
 
 // synthesis translate_off
 initial begin
-    $monitor("Mce=%d", ce);
-    $monitor("Mnext=%d", next);
+    //$monitor("Mce=%d", ce);
+    //$monitor("Mnext=%d", next);
 end
 
-always @(negedge clk) 
-    $display("_state=%d", state);
+//always @(negedge clk) 
+    //$display("_state=%d", state);
 // synthesis translate_on 
 
 always @* begin

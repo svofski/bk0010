@@ -204,25 +204,26 @@ always @* cpu_rply <= cpu_sync;
 wire cpu_sync, cpu_rd, cpu_we, cpu_byte, cpu_bsy, cpu_init, cpu_ifetch;
 reg  cpu_rply;
 
-reg ce;
+wire ce;
 
-initial begin
-    ce = 0;
-end
-
+reg [1:0] cereg = 0;
 always @(posedge m_clock) begin: _ce
-    ce <= ~ce;
+    cereg <= cereg + 'b1;
 end
+
+assign ce = cereg == 2'b01;
+
+wire [15:0] cpu_d_in_bus = ce ? cpu_d_in : 16'h0000;
 
 vm1 cpu
           (.clk(m_clock), 
            .ce(ce),
            .reset_n(mreset_n),
-           .data_i(cpu_d_in),
+           .data_i(cpu_d_in_bus),
            .data_o(cpu_d_o),
            .addr_o(cpu_a_o),
            .SYNC(cpu_sync),        // o: address set
-           .RPLY(cpu_rply),        // i: reply to DIN or DOUT
+           .RPLY(cpu_rply & ce),        // i: reply to DIN or DOUT
            .DIN(cpu_rd),         // o: data in flag
            .DOUT(cpu_we),        // o: data out flag
            .WTBT(cpu_byte),        // o: byteio op/odd address
@@ -292,9 +293,9 @@ vm1 cpu
 
   initial begin
     $display("BM1 simulation begins");
-    disp = 1;
+    disp = 0;
     
-    #(STEP*80000/*80000*/) begin
+    #(STEP*280000/*80000*/) begin
         $display("\nend by step limit @#177776=%o", ram2[16383]);
         $finish;
     end
