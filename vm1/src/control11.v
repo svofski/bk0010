@@ -165,7 +165,11 @@ always @(negedge clk)
 // synthesis translate_on 
 
 always @* begin
-    if (ce) begin
+    if (!reset_n) begin
+        next = BOOT_0;
+    end
+    else
+    begin
         {dati,dato} = 0;
         dati_of1 = 0;
         dati_of4 = 0;
