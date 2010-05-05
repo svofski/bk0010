@@ -204,10 +204,19 @@ always @* cpu_rply <= cpu_sync;
 wire cpu_sync, cpu_rd, cpu_we, cpu_byte, cpu_bsy, cpu_init, cpu_ifetch;
 reg  cpu_rply;
 
+reg ce;
+
+initial begin
+    ce = 0;
+end
+
+always @(posedge m_clock) begin: _ce
+    ce <= ~ce;
+end
 
 vm1 cpu
           (.clk(m_clock), 
-           .ce(1),
+           .ce(ce),
            .reset_n(mreset_n),
            .data_i(cpu_d_in),
            .data_o(cpu_d_o),
@@ -283,7 +292,7 @@ vm1 cpu
 
   initial begin
     $display("BM1 simulation begins");
-    disp = 0;
+    disp = 1;
     
     #(STEP*80000/*80000*/) begin
         $display("\nend by step limit @#177776=%o", ram2[16383]);

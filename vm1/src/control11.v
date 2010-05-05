@@ -144,7 +144,7 @@ always @(posedge clk) begin
         dato_r <= 0;
     end
     else if (ce) begin
-        //$strobe("^state=%d->%d", state, next);
+        //$display("^state=%d->%d ce=%b", state, next, ce);
         state <= next;
         dati_r <= dati;
         dati_of1_r <= dati_of1;
@@ -154,8 +154,18 @@ always @(posedge clk) begin
     end
 end
 
+// synthesis translate_off
+initial begin
+    $monitor("Mce=%d", ce);
+    $monitor("Mnext=%d", next);
+end
+
+always @(negedge clk) 
+    $display("_state=%d", state);
+// synthesis translate_on 
+
 always @* begin
-    begin
+    if (ce) begin
         {dati,dato} = 0;
         dati_of1 = 0;
         dati_of4 = 0;
@@ -190,6 +200,7 @@ always @* begin
                         end else if (di_ready) begin
                             // accept data (opcode)
                             next = FS_ID0;
+                            //$display("IF0: ready, state=%d next=%d ce=%d", state, next, ce);
                             //dati = 1'b1;
                             `dp(`DBAPC);
                             
@@ -204,7 +215,7 @@ always @* begin
                             dati = 1'b1;
                             `dp(`DBAPC);
                             `dp(`SETOPC);
-                            next = FS_IF0;
+                            //next = FS_IF0;
                         end
                     end
                 end

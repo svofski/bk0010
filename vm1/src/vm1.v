@@ -15,7 +15,7 @@
 
 // 35ns/clk for negedge
 // 15ns/clk for posedge/2
-`define DATAPATH_ON_NEGEDGE
+//`define DATAPATH_ON_NEGEDGE
 
 `include "opc.h"
 `include "instr.h"
@@ -179,29 +179,11 @@ wire					controlr_dati;
 wire					controlr_dato;
 wire					controlr_byte;
 
-`ifdef DATAPATH_ON_NEGEDGE
 wire	ctl_ce = ce,
 		dp_ce = ce;
 wire	dp_clk  = clk;
 wire    dbi_clk = clk;
-wire    cedbi = 1;
-`else
-
-reg 	ticktock;
-always @(posedge clk or negedge reset_n) begin
-    if (~reset_n) 
-        ticktock <= 0;
-    else if (ce) 
-        ticktock <= ~ticktock;
-end
-	
-wire	ctl_ce = ce & ticktock, 
-		dp_ce =  ce & ~ticktock;
-		
-wire	dp_clk  = clk;
-wire    dbi_clk = clk;
-wire    cedbi   = ctl_ce;
-`endif
+wire    cedbi = ce;
 
 wire	error_to_control = error_bus | error_i;
 
