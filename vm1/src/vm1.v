@@ -231,6 +231,7 @@ datapath dp(
 	.cedbi(cedbi),
 	.reset_n(reset_n),
 	.dbi(data_i), 
+	.din_active(controlr_dati),
 	.dbo(data_o),
 	.dba(addr_o),
 	.opcode(opcode),

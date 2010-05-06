@@ -117,12 +117,12 @@ reg        rsub;
 // stretched ready
 
 reg         ready_r;
-always @(posedge clk)
+always @(posedge clk or negedge reset_n)
     if (!reset_n) 
         ready_r <= 0;
-    else 
-        if (ce) ready_r <= ready_i;
-    
+    else begin
+        ready_r <= ready_i ? ready_i : ce ? ready_i : ready_r;
+    end
 reg         ready;
 always @*
         ready = ready_r | ready_i;
@@ -151,8 +151,8 @@ always @* begin
     dati_o = dati | dati_of1 | dati_of4;
 end
 
-
-always @(posedge clk) begin
+// async reset is necessary 
+always @(posedge clk or negedge reset_n) begin
     if (!reset_n) begin
         state <= BOOT_0;
         {dati_r,dati_of1_r,dati_of4_r} <= 0;
@@ -191,7 +191,7 @@ always @* begin
         
         opsrcdst_to = opsrcdst_r; // don't allow opsrcdst to latch
         
-        next = state;
+        next = !reset_n ? BOOT_0 : state;
         
         case (state)
         //default:next = state;

@@ -10,9 +10,10 @@
 
 `include "instr.h"
 
-module datapath(clk, ce, clkdbi, cedbi, reset_n, dbi, dbo, dba, opcode, psw, ctrl, alucc, taken, PC, ALU1, ALUOUT, SRC, DST, Rtest);
+module datapath(clk, ce, clkdbi, cedbi, reset_n, dbi, din_active, dbo, dba, opcode, psw, ctrl, alucc, taken, PC, ALU1, ALUOUT, SRC, DST, Rtest);
 input			clk, ce, clkdbi, cedbi, reset_n;
 input 	[15:0]	dbi;
+input           din_active; // needed to select between registered/direct inputs
 output reg[15:0]dbo;
 output reg[15:0]dba;
 output	[15:0]	opcode;
@@ -66,12 +67,13 @@ assign 	psw = {prio,trapbit,fn,fz,fv,fc};
 
 reg taken; // latch
 
-reg [15:0] dbi_r;
-
-//always @(posedge clkdbi) 
-//    if (cedbi) 
-//        dbi_r <= dbi;
-always @* dbi_r <= dbi;
+// deliver dbi as soon as possible, but hold it for one more clock-enabled cycle
+reg [15:0] dbi_reg;
+always @(posedge clkdbi) 
+    if (cedbi) 
+        dbi_reg <= dbi;
+        
+wire [15:0] dbi_r = din_active ? dbi : dbi_reg;
 
 initial begin
  // $monitor("dbi_r=%o", dbi_r);

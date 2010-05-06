@@ -4474,13 +4474,14 @@ TRANSITION_LIST("ce")
 	NODE
 	{
 		REPEAT = 1;
-		LEVEL 1 FOR 10.0;
+		LEVEL 1 FOR 5.0;
 		NODE
 		{
 			REPEAT = 11;
 			LEVEL 0 FOR 63.0;
 			LEVEL 1 FOR 27.0;
 		}
+		LEVEL 0 FOR 5.0;
 	}
 }
 
