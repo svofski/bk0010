@@ -319,7 +319,7 @@ always @(posedge m_clock) begin
 					if( kbd_state_sel) 
 						kbd_int_flag <= _cpu_dato[6];
 					if(roll_sel)
-						roll <= _cpu_dato;
+						{roll[9],roll[7:0]} <= {_cpu_dato[9],_cpu_dato[7:0]};
 					if (initreg_sel) begin
 						tape_out <= _cpu_dato[6];
 						initreg_access_latch <= 1'b1;
