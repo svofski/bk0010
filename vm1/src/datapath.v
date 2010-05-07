@@ -73,7 +73,8 @@ always @(posedge clkdbi)
     if (cedbi) 
         dbi_reg <= dbi;
         
-wire [15:0] dbi_r = din_active ? dbi : dbi_reg;
+//wire [15:0] dbi_r = din_active ? dbi : dbi_reg;
+wire [15:0] dbi_r = dbi;
 
 initial begin
  // $monitor("dbi_r=%o", dbi_r);

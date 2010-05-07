@@ -210,6 +210,9 @@ always @* begin
                     end 
                     else begin
                         `dp(`DBAPC);
+                        dati = 1'b1;
+                        ifetch = 1'b1;
+                        mbyte = 0;
                         if (ierror) begin
                             next = TRAP_SVC;
                             `dp(`BUSERR);
@@ -221,12 +224,7 @@ always @* begin
                             `dp(`INC2);
                             `dp(`ALUPC);
                             `dp(`SETOPC);
-                        end  else begin
-                            // initiate instruction fetch
-                            mbyte = 0;
-                            ifetch = 1'b1;
-                            dati = 1'b1;
-                        end
+                        end  
                     end
                 end
                 
