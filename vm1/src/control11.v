@@ -89,7 +89,7 @@ parameter [5:0]    BOOT_0 = 0,
 
                 TRAP_1 = 49,
                 TRAP_2 = 50,
-                TRAP_3 = 51,
+                TRAP_3 = 51,  TRAP_3X = 60,
                 TRAP_4 = 52,
                 TRAP_IRQ = 55,
                 TRAP_SVC = 56;
@@ -128,62 +128,89 @@ always @*
         ready = ready_r | ready_i;
 //wire        ready = /*ready_r | */ready_i;    
 
-reg         dati, dato;
-
-reg        dati_r;
+reg        dato;
 reg        dato_r;
 
-reg        dati_of4_r;
-reg        dati_of4;
-wire       di_ready_of4 = dati_of4_r & ready;
+parameter   di_com = 0, 
+            di_of4 = 1, 
+            di_of1 = 2, 
+            di_t1 = 3, 
+            di_t2 = 4, 
+            di_last = 4;
+            
+reg [di_last:0]     datist;
+reg [di_last:0]     datist_r;
 
-reg        dati_of1_r;
-reg        dati_of1;
-wire       di_ready_of1 = dati_of1_r & ready;
+wire       di_ready = datist_r[di_com] & ready;
+
+function diready;
+input s;
+begin
+    diready = datist_r[s] & ready;
+end endfunction
+
+task datain;
+input s;
+begin
+    datist[s] = 1'b1;
+end endtask
 
 
-wire       di_ready = dati_r & ready;
-wire       do_ready = dato_r & ready;
+parameter   do_com = 0,
+            do_t3 = 1,
+            do_t4 = 2,
+            do_last = 3;
+            
+reg [do_last:0]     datost;
+reg [do_last:0]     datost_r;            
+            
+wire       do_ready = datost_r[do_com] & ready;//dato_r & ready;
 
+function doready;
+input s;
+begin
+    doready = datost_r[s] & ready;
+end endfunction
+
+task dataout;
+input s;
+begin
+    datost[s] = 1'b1;
+end endtask
 
 always @* begin
-    dato_o = dato;
-    dati_o = dati | dati_of1 | dati_of4;
+    dato_o = |datost;
+    dati_o = |datist;
 end
 
 // async reset is necessary 
 always @(posedge clk or negedge reset_n) begin
     if (!reset_n) begin
         state <= BOOT_0;
-        {dati_r,dati_of1_r,dati_of4_r} <= 0;
-        dato_r <= 0;
+        //{dati_r,dati_of1_r,dati_of4_r,dati_t1_r} <= 0;
+        datist_r <= 0;
+        datost_r <= 0;
     end
     else if (ce) begin
         //$display("^state=%d->%d ce=%b", state, next, ce);
         state <= next;
-        dati_r <= dati;
-        dati_of1_r <= dati_of1;
-        dati_of4_r <= dati_of4;
-        dato_r <= dato;
+        //dati_r <= dati;
+        //dati_of1_r <= dati_of1;
+        //dati_of4_r <= dati_of4;
+        //dati_t1_r  <= dati_t1;
+        
+        datist_r <= datist;
+        datost_r <= datost;
+        
         opsrcdst_r <= opsrcdst_to;
     end
 end
 
-// synthesis translate_off
-initial begin
-    //$monitor("Mce=%d", ce);
-    //$monitor("Mnext=%d", next);
-end
-
-//always @(negedge clk) 
-    //$display("_state=%d", state);
-// synthesis translate_on 
-
 always @* begin
     begin
-        {dati,dato} = 0;
-        dati_of1 = 0;
-        dati_of4 = 0;
+        datost = 0;
+        datist = 0;
+        
         dpcmd = 128'b0;
         initq = 1'b0;
         iako = 1'b0;
@@ -191,7 +218,7 @@ always @* begin
         
         opsrcdst_to = opsrcdst_r; // don't allow opsrcdst to latch
         
-        next = !reset_n ? BOOT_0 : state;
+        next = state;
         
         case (state)
         //default:next = state;
@@ -210,7 +237,8 @@ always @* begin
                     end 
                     else begin
                         `dp(`DBAPC);
-                        dati = 1'b1;
+                        //dati = 1'b1;
+                        datain(di_com);
                         ifetch = 1'b1;
                         mbyte = 0;
                         if (ierror) begin
@@ -323,14 +351,15 @@ always @* begin
                             if (ierror) begin
                                 next = TRAP_SVC;        
                                 `dp(`BUSERR);
-                            end else if (di_ready_of1) begin
+                            end else if (diready(di_of1)) begin
                                 `dp(`PCALU1); `dp(`INC2); `dp(`ALUPC);
                                 `dp(opsrcdst_r == SRC_OP ? `DBISRC : `DBIDST);
                                 //dati = 1'b1;
                                 next = FS_OF2;
                             end else begin
                                 //`dp(opsrcdst_r == SRC_OP ? `DBISRC : `DBIDST);
-                                dati_of1 = 1'b1;
+                                //dati_of1 = 1'b1;
+                                datain(di_of1);
                                 mbyte = 0;
                             end
                             
@@ -383,9 +412,8 @@ always @* begin
                 end else begin
                     // initiate memory read
                     mbyte = INDR ? 1'b0 : BYTE;
-                    dati = 1'b1;
-                    //$display("OF3 initiate memory read %b", opsrcdst_r);
-                    //`dp(opsrcdst_r == SRC_OP ? `DBASRC : `DBADST);
+                    //dati = 1'b1;
+                    datain(di_com);
                 end
                 
                 end
@@ -398,15 +426,14 @@ always @* begin
                         `dp(`BUSERR);
                         next = TRAP_SVC;
                     end 
-                    else if (di_ready_of4) begin
+                    else if (diready(di_of4)) begin
                         `dp(`DSTADR);   // ADR <= DST @clk save loaded data into ADR
                         `dp(`DBIDST);   // DST <= DBI @ clk input data to DST
-                        //dati = 1'b1;
                         next = EX_0;
                     end else begin
                         // initiate memory read
                         mbyte = BYTE;
-                        dati_of4 = 1'b1;
+                        datain(di_of4);
                     end
                 end else begin        // SRC
                     `dp(`DBASRC);
@@ -414,18 +441,17 @@ always @* begin
                         `dp(`BUSERR);
                         next = TRAP_SVC;
                     end
-                    else if (di_ready_of4) begin
-                        `dp(`SRCADR); //`dp(`DBISRC);
+                    else if (diready(di_of4)) begin
+                        `dp(`SRCADR); 
+                        `dp(`DBISRC);
                         `dp(`CHANGE_OPR);
                         opsrcdst_to = DST_OP;
-                        //dati = 1'b1;
-                        //$display("FS_OF4: SWITCH to DST_OP -> FS_OF1");
                         next = FS_OF1;
                     end else begin
                         mbyte = BYTE;
                         //`dp(`DBASRC);
-                        `dp(`DBISRC);
-                        dati_of4 = 1'b1;
+                        //`dp(`DBISRC);
+                        datain(di_of4);
                     end
                 end
                 
@@ -553,7 +579,7 @@ always @* begin
                                                 next = EX_2;
                                             end else begin
                                                 mbyte = 1'b0;
-                                                dato = 1'b1;
+                                                dataout(do_com);
                                                 `dp(`REGSEL2); `dp(`DBOSEL); `dp(`DBASP);
                                             end
                                           end
@@ -585,7 +611,7 @@ always @* begin
                                                 next = FS_IF0;
                                             end else begin
                                                 mbyte = 1'b0;
-                                                dati = 1'b1;
+                                                datain(di_com);
                                             end
                                           end
                                     endcase
@@ -606,9 +632,7 @@ always @* begin
                                                 next = EX_1;
                                             end else begin
                                                 mbyte = 1'b0;
-                                                dati = 1'b1;
-                                                //`dp(`DBASP);
-                                                //`dp(`DBIPC);
+                                                datain(di_com);
                                             end
                                           end
                                     EX_1: begin
@@ -622,9 +646,7 @@ always @* begin
                                                 next = FS_IF0;
                                             end else begin
                                                 mbyte = 1'b0;
-                                                dati = 1'b1;
-                                                //`dp(`DBASP);
-                                                //`dp(`DBIPS);
+                                                datain(di_com);
                                             end
                                           end
                                     endcase
@@ -653,9 +675,7 @@ always @* begin
                                                 next = FS_IF0;
                                             end else begin
                                                 mbyte = 1'b0;
-                                                dati = 1'b1;
-                                                //`dp(`DBASP);
-                                                //`dp(`DBIFP);
+                                                datain(di_com);
                                             end
                                           end
                                     endcase
@@ -681,7 +701,7 @@ always @* begin
                             next = TRAP_SVC;
                         end
                         else if (do_ready) begin
-                            dato = 1'b1;
+                            dataout(do_com);
                             `dp(`DBODST); `dp(`DBAADR);
 
                             if (TRACE) begin
@@ -693,7 +713,7 @@ always @* begin
                             else
                                 next = FS_IF0;
                         end else begin
-                            dato = 1'b1;
+                            dataout(do_com);
                             mbyte = BYTE;
                             `dp(`DBODST); `dp(`DBAADR);
                             //$display("DBODST DBAADR: ADR=%o", dp.ADR);
@@ -715,6 +735,9 @@ always @* begin
         
             // it's a trap!
         TRAP_IRQ: begin
+                    `dp(`RESET_BYTE); 
+                    `dp(`SAVE_STAT);
+                    `dp(`DBISRC);
                     iako = 1'b1; 
                     if (ierror) begin
                         `dp(`BUSERR);
@@ -724,11 +747,7 @@ always @* begin
                         next = TRAP_1;
                     end else begin
                         mbyte = 1'b0;
-                        dati = 1'b1;
-                        iako = 1'b1;
-                        `dp(`RESET_BYTE); 
-                        `dp(`SAVE_STAT);
-                        `dp(`DBISRC);
+                        datain(di_com);
                     end
                   end
         
@@ -739,6 +758,8 @@ always @* begin
                   end
                 
         TRAP_1:    begin
+                    `dp(`DBASRC);    // trap vector
+                    `dp(`DBIPC);
                     if (ierror) begin
                         `dp(`BUSERR);
                         next = TRAP_SVC;
@@ -747,56 +768,60 @@ always @* begin
                         // - if this is IRQ or any trap but bus error => trap to 4
                         // - if this is trap 4 => die to console mode
                         // not sure what VM1 is supposed to do here
-                    end else if (di_ready) begin
+                    end else if (diready(di_t1)) begin
                         //`dp(`DBIPC);
                         `dp(`SRCALU1); `dp(`INC2); `dp(`ALUSRC);
                         next = TRAP_2;
                     end else begin
                         mbyte = 1'b0;
-                        dati = 1'b1;
-                        `dp(`DBASRC);    // trap vector
-                        `dp(`DBIPC);
+                        datain(di_t1);
                     end
                 end
                 
         TRAP_2: begin
+                    `dp(`DBASRC);     // vector+2/priority
+                    `dp(`VECTORPS);
                     if (ierror) begin
                         `dp(`BUSERR);
                         next = TRAP_SVC;
-                    end else if (di_ready) begin
+                    end else if (diready(di_t2)) begin
                         //`dp(`VECTORPS);
                         `dp(`SPALU1); `dp(`DEC2); `dp(`ALUSP);
                         next = TRAP_3;
                     end else begin
                         mbyte = 1'b0;
-                        dati = 1'b1;
-                        `dp(`DBASRC);     // vector+2/priority
-                        `dp(`VECTORPS);
+                        datain(di_t2);
                     end
                 end
                 
         TRAP_3:    begin
+                    `dp(`DBODST); 
+                    `dp(`DBASP);
                     if (ierror) begin
                         `dp(`BUSERR);
                         next = TRAP_SVC;
-                    end else if (do_ready) begin
+                    end else if (doready(do_t3)) begin
                         `dp(`SPALU1); `dp(`DEC2); `dp(`ALUSP);
-                        next = TRAP_4;
+                        next = TRAP_3X;
+                        //dataout(do_t3);
                     end else begin
                         `dp(`DBODST); `dp(`DBASP);
                         mbyte = 1'b0;// Mr.Iida has BYTE here
-                        dato = 1'b1;
+                        dataout(do_t3);
                     end
                 end
+        TRAP_3X:    next = TRAP_4;
         TRAP_4: begin
+                    `dp(`DBOADR); 
+                    `dp(`DBASP);
                     if (ierror) begin
                         `dp(`BUSERR);
                         next = TRAP_SVC;
-                    end else if (do_ready) begin
+                    end else if (doready(do_t4)) begin
                         next = FS_IF0;
+                        //dataout(do_t4);
                     end else begin
-                        `dp(`DBOADR); `dp(`DBASP);
-                        dato = 1'b1;
+                        dataout(do_t4);
                     end
                 end
         endcase // state

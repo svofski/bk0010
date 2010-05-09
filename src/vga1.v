@@ -31,7 +31,8 @@ module sync_gen25 (clk, res, CounterX, CounterY, Valid, vga_h_sync, vga_v_sync);
         wire     ResetCntX;
 
 
-   assign   ResetCntX  = (CounterX[9:0] == 699);
+   //assign   ResetCntX  = (CounterX[9:0] == 699); // this is fine but isn't a multiply of 16
+   assign   ResetCntX  = (CounterX[9:0] == 703);   // 704 is 
    
 //Counters
 always @ (posedge clk) begin
