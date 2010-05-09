@@ -49,7 +49,7 @@ input               dp_taken;
 input     [15:0]    dp_opcode;
 input      [3:0]    dp_alucc;
 input     [15:0]    psw;
-output reg          ifetch;
+output              ifetch;
 input               irq_in;
 output reg          iako;
 input[`IDC_NOPS:0]  idcop;
@@ -110,6 +110,8 @@ wire     AUTO_DEC = dp_opcode[5];
 wire         BYTE = dp_opcode[15];
 wire        TRACE = psw[4]; 
 
+assign     ifetch = state == FS_IF0;
+
 `define dp(x) dpcmd[x] = 1'b1
 
 reg        rsub;
@@ -164,7 +166,7 @@ parameter   do_com = 0,
 reg [do_last:0]     datost;
 reg [do_last:0]     datost_r;            
             
-wire       do_ready = datost_r[do_com] & ready;//dato_r & ready;
+wire       do_ready = datost_r[do_com] & ready;
 
 function doready;
 input s;
@@ -183,21 +185,16 @@ always @* begin
     dati_o = |datist;
 end
 
-// async reset is necessary 
+// async reset is necessary if clock stops on reset too
 always @(posedge clk or negedge reset_n) begin
     if (!reset_n) begin
         state <= BOOT_0;
-        //{dati_r,dati_of1_r,dati_of4_r,dati_t1_r} <= 0;
         datist_r <= 0;
         datost_r <= 0;
     end
     else if (ce) begin
         //$display("^state=%d->%d ce=%b", state, next, ce);
         state <= next;
-        //dati_r <= dati;
-        //dati_of1_r <= dati_of1;
-        //dati_of4_r <= dati_of4;
-        //dati_t1_r  <= dati_t1;
         
         datist_r <= datist;
         datost_r <= datost;
@@ -214,7 +211,6 @@ always @* begin
         dpcmd = 128'b0;
         initq = 1'b0;
         iako = 1'b0;
-        ifetch = 1'b0;
         
         opsrcdst_to = opsrcdst_r; // don't allow opsrcdst to latch
         
@@ -228,6 +224,10 @@ always @* begin
                     next = FS_IF0;
                 end
         FS_IF0: begin 
+                    `dp(`DBAPC);
+                    datain(di_com);
+                    mbyte = 0;
+                    
                     if (~TRACE & irq_in)    
                         next = TRAP_IRQ;
                     else                                        // breakpoint if T, but not 
@@ -236,11 +236,6 @@ always @* begin
                         next = TRAP_SVC;    
                     end 
                     else begin
-                        `dp(`DBAPC);
-                        //dati = 1'b1;
-                        datain(di_com);
-                        ifetch = 1'b1;
-                        mbyte = 0;
                         if (ierror) begin
                             next = TRAP_SVC;
                             `dp(`BUSERR);
@@ -262,29 +257,22 @@ always @* begin
                     if (idc_unused) begin
                         `dp(`ERR);
                         next = TRAP_SVC;
-                        //$display("unu!");
                     end else if (idc_rsd) begin
                         `dp(`CHANGE_OPR);
                         opsrcdst_to = DST_OP;
                         next = FS_OF0;
-                        //$display("rsd!");
                     end else if (idc_nof) begin
                         next = EX_0;
-                        //$display("nof!");
                     end else if (idc_cco) begin
                         next = FS_CC0;
-                        //$display("cco!");
                     end else if (idc_bra) begin
                         `dp(`CCTAKEN); // latch condition 
                         next = FS_BR0;
-                        //$display("bra!");
                     end else if (idc_sop) begin
                         `dp(`CHANGE_OPR);
                         opsrcdst_to = SRC_OP;
                         next = FS_OF1;
-                        //$display("sop!");
                     end else if (idc_dop) begin
-                        //$display("dop!");
                         opsrcdst_to = DST_OP;
                         next = FS_OF1;
                     end
@@ -354,11 +342,8 @@ always @* begin
                             end else if (diready(di_of1)) begin
                                 `dp(`PCALU1); `dp(`INC2); `dp(`ALUPC);
                                 `dp(opsrcdst_r == SRC_OP ? `DBISRC : `DBIDST);
-                                //dati = 1'b1;
                                 next = FS_OF2;
                             end else begin
-                                //`dp(opsrcdst_r == SRC_OP ? `DBISRC : `DBIDST);
-                                //dati_of1 = 1'b1;
                                 datain(di_of1);
                                 mbyte = 0;
                             end
@@ -384,6 +369,7 @@ always @* begin
         FS_OF3: begin
                 //$display("OF3 dati=%d datir=%d di_ready=%d opsrcdst=%b", dati, dati_r, di_ready, opsrcdst_r);
                 `dp(opsrcdst_r == SRC_OP ? `DBASRC : `DBADST);
+                mbyte = INDR ? 1'b0 : BYTE;
                 if (ierror) begin
                     next = TRAP_SVC;
                     `dp(`BUSERR);
@@ -408,11 +394,8 @@ always @* begin
                         opsrcdst_to = DST_OP;
                         next = FS_OF1;
                     end
-                    //dati = 1'b1;
                 end else begin
                     // initiate memory read
-                    mbyte = INDR ? 1'b0 : BYTE;
-                    //dati = 1'b1;
                     datain(di_com);
                 end
                 
@@ -420,6 +403,7 @@ always @* begin
                 
                 // Deferred instruction (9)
         FS_OF4: begin
+                mbyte = BYTE;
                 if (opsrcdst_r == DST_OP) begin
                     `dp(`DBADST);
                     if (ierror) begin
@@ -432,7 +416,6 @@ always @* begin
                         next = EX_0;
                     end else begin
                         // initiate memory read
-                        mbyte = BYTE;
                         datain(di_of4);
                     end
                 end else begin        // SRC
@@ -448,9 +431,6 @@ always @* begin
                         opsrcdst_to = DST_OP;
                         next = FS_OF1;
                     end else begin
-                        mbyte = BYTE;
-                        //`dp(`DBASRC);
-                        //`dp(`DBISRC);
                         datain(di_of4);
                     end
                 end
@@ -466,7 +446,6 @@ always @* begin
                 end
                 
         FS_BR0:    begin
-                    //`dp(`CCTAKEN); // latch condition -- see ID0
                     if (dp_taken) begin
                         `dp(`PCALU1); `dp(`OFS8ALU2); 
                         `dp(`ADD); `dp(`ALUPC);
@@ -737,13 +716,12 @@ always @* begin
         TRAP_IRQ: begin
                     `dp(`RESET_BYTE); 
                     `dp(`SAVE_STAT);
-                    `dp(`DBISRC);
+                    `dp(`DBISRC);   // read interrupt vector from dbi
                     iako = 1'b1; 
                     if (ierror) begin
                         `dp(`BUSERR);
                         next = TRAP_SVC;
                     end else if (di_ready) begin
-                        //`dp(`DBISRC);            // read interrupt vector from dbi
                         next = TRAP_1;
                     end else begin
                         mbyte = 1'b0;
@@ -763,13 +741,7 @@ always @* begin
                     if (ierror) begin
                         `dp(`BUSERR);
                         next = TRAP_SVC;
-                        // becoming an hero.
-                        // here LSI-11 is supposed to:
-                        // - if this is IRQ or any trap but bus error => trap to 4
-                        // - if this is trap 4 => die to console mode
-                        // not sure what VM1 is supposed to do here
                     end else if (diready(di_t1)) begin
-                        //`dp(`DBIPC);
                         `dp(`SRCALU1); `dp(`INC2); `dp(`ALUSRC);
                         next = TRAP_2;
                     end else begin
@@ -785,7 +757,6 @@ always @* begin
                         `dp(`BUSERR);
                         next = TRAP_SVC;
                     end else if (diready(di_t2)) begin
-                        //`dp(`VECTORPS);
                         `dp(`SPALU1); `dp(`DEC2); `dp(`ALUSP);
                         next = TRAP_3;
                     end else begin
@@ -803,7 +774,6 @@ always @* begin
                     end else if (doready(do_t3)) begin
                         `dp(`SPALU1); `dp(`DEC2); `dp(`ALUSP);
                         next = TRAP_3X;
-                        //dataout(do_t3);
                     end else begin
                         `dp(`DBODST); `dp(`DBASP);
                         mbyte = 1'b0;// Mr.Iida has BYTE here
@@ -819,7 +789,6 @@ always @* begin
                         next = TRAP_SVC;
                     end else if (doready(do_t4)) begin
                         next = FS_IF0;
-                        //dataout(do_t4);
                     end else begin
                         dataout(do_t4);
                     end
