@@ -1,6 +1,6 @@
 // =======================================================
 // 1801VM1 SOFT CPU
-// Copyright(C)2005 Alex Freed, 2008 Viacheslav Slavinsky
+// Copyright(C)2005 Alex Freed, 2008-2010 Viacheslav Slavinsky 
 // Based on original POP-11 design (C)2004 Yoshihiro Iida
 //
 // Distributed under the terms of Modified BSD License
@@ -70,7 +70,7 @@ parameter [5:0]    BOOT_0 = 0,
                 FS_OF0 = 5,
                 FS_OF1 = 6,
                 FS_OF2 = 7,
-                FS_OF3 = 8,
+                FS_OF3 = 8, 
                 FS_OF4 = 9,
                 FS_BR0 = 10,
                 FS_CC0 = 11,
@@ -89,12 +89,15 @@ parameter [5:0]    BOOT_0 = 0,
 
                 TRAP_1 = 49,
                 TRAP_2 = 50,
-                TRAP_3 = 51,  TRAP_3X = 60,
+                TRAP_3 = 51,  
                 TRAP_4 = 52,
                 TRAP_IRQ = 55,
-                TRAP_SVC = 56;
+                TRAP_SVC = 56,
+                
+                WAIT = 60
+                ;
 
-reg [5:0] state, next;
+reg [5:0] state, next, next_postponed;
 
 parameter SRC_OP = 1'b0,
           DST_OP = 1'b1;
@@ -125,10 +128,8 @@ always @(posedge clk or negedge reset_n)
     else begin
         ready_r <= ready_i ? ready_i : ce ? ready_i : ready_r;
     end
-reg         ready;
-always @*
-        ready = ready_r | ready_i;
-//wire        ready = /*ready_r | */ready_i;    
+
+wire        ready = ready_r | ready_i;    
 
 reg        dato;
 reg        dato_r;
@@ -185,20 +186,42 @@ always @* begin
     dati_o = |datist;
 end
 
+reg waiting;
+
+// These states (or substates) never attempt a memory i/o.
+// They do not require the REPLY signal to be cleared and
+// they should not require extra WAIT states.
+wire neverwait = 
+                 (next == FS_ID0)          
+               ||(next == FS_OF2) 
+               //||((next == FS_OF1) && !(MODE == 2'b11)) -- why this one fails?
+               ||((next == EX_0) && !(idcop[`drtt]|idcop[`drti]))  // only rtt and rti use RAM on EX0
+                 ;
+
 // async reset is necessary if clock stops on reset too
 always @(posedge clk or negedge reset_n) begin
     if (!reset_n) begin
+        next_postponed <= BOOT_0;
         state <= BOOT_0;
         datist_r <= 0;
         datost_r <= 0;
     end
     else if (ce) begin
         //$display("^state=%d->%d ce=%b", state, next, ce);
-        state <= next;
+        
+        // if reply is high by the time of state switching, 
+        // fall into the WAIT state, saving next.
+        // when ready is released, continue using next_postponed.
+        if (ready_i && ~waiting && state != next && ~neverwait) begin
+            next_postponed <= next;
+            state <= WAIT;
+        end else begin
+            state <= next;
+        end
+        
         
         datist_r <= datist;
         datost_r <= datost;
-        
         opsrcdst_r <= opsrcdst_to;
     end
 end
@@ -211,13 +234,17 @@ always @* begin
         dpcmd = 128'b0;
         initq = 1'b0;
         iako = 1'b0;
+        waiting = 1'b0;
         
         opsrcdst_to = opsrcdst_r; // don't allow opsrcdst to latch
         
         next = state;
         
         case (state)
-        //default:next = state;
+        WAIT:   begin 
+                    waiting = 1'b1;
+                    if (~ready) next <= next_postponed;
+                end
         
         BOOT_0: begin
                     `dp(`SETPCROM);
@@ -225,7 +252,6 @@ always @* begin
                 end
         FS_IF0: begin 
                     `dp(`DBAPC);
-                    datain(di_com);
                     mbyte = 0;
                     
                     if (~TRACE & irq_in)    
@@ -247,7 +273,9 @@ always @* begin
                             `dp(`INC2);
                             `dp(`ALUPC);
                             `dp(`SETOPC);
-                        end  
+                        end else begin
+                            datain(di_com);
+                        end
                     end
                 end
                 
@@ -335,6 +363,7 @@ always @* begin
                             
                     2'b 11: begin
                             //$display("FS_OF1:11 next=%d", next);
+                            mbyte = 0;
                             `dp(`DBAPC);
                             if (ierror) begin
                                 next = TRAP_SVC;        
@@ -345,7 +374,6 @@ always @* begin
                                 next = FS_OF2;
                             end else begin
                                 datain(di_of1);
-                                mbyte = 0;
                             end
                             
                             end
@@ -398,7 +426,6 @@ always @* begin
                     // initiate memory read
                     datain(di_com);
                 end
-                
                 end
                 
                 // Deferred instruction (9)
@@ -773,14 +800,14 @@ always @* begin
                         next = TRAP_SVC;
                     end else if (doready(do_t3)) begin
                         `dp(`SPALU1); `dp(`DEC2); `dp(`ALUSP);
-                        next = TRAP_3X;
+                        next = TRAP_4;
                     end else begin
                         `dp(`DBODST); `dp(`DBASP);
                         mbyte = 1'b0;// Mr.Iida has BYTE here
                         dataout(do_t3);
                     end
                 end
-        TRAP_3X:    next = TRAP_4;
+                
         TRAP_4: begin
                     `dp(`DBOADR); 
                     `dp(`DBASP);

@@ -7,6 +7,7 @@
 // Original POP-11 code and sfl2vl conversion Copyright(C) 2003 Prof.Naohiko Shimizu
 // Original BK code, 1801VM1 ALU, 1801VM1 Instruction Decoder Copyright(C) 2005 Alex Freed	
 // BK code, DE1 adaptation Copyright(C) 2008 Viacheslav Slavinsky
+// VM1 Soft CPU Copyright(C) 2008-2010 Viacheslav Slavinsky
 //
 // For POP-11 licensing terms see README
 // (In short form it makes this project only valid for academic purposes)
@@ -18,9 +19,15 @@
 
 `default_nettype none
 
+// Enable access to SRAM and debug via the DE1 Control Panel
 `define WITH_DE1_JTAG
+// Not recommeded: use SW7=0 to stop the CPU and SW6=1 enable Control Panel access
 `define JTAG_AUTOHOLD
-//`define DATAPATH_ON_NEGEDGE
+// CORE_25MHZ for core and CPU clocked by 25MHz clock.
+// To enable 50MHz clock, comment this out and set optimization to Speed.
+`define CORE_25MHZ 
+
+//`define DATAPATH_ON_NEGEDGE -- no more negedges 
 
 module bk0010de1(
 		CLOCK_27, 
