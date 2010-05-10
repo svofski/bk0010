@@ -158,33 +158,39 @@ reg [15:0] 		data_from_cpu;
 assign      enable_bpts = switch[6];
 assign      cpu_pause_n = switch[7];
 
+`ifdef CORE_25MHZ    
+assign      clk_cpu   = clk25;
+`else
+assign      clk_cpu   = clk50;
+
+reg         cediv50;
+always @(posedge clk_cpu or negedge ~reset_in)
+    if (reset_in)
+        cediv50 <= 0;
+    else
+        cediv50 <= ~cediv50;
+`endif
+
+
 always @*
     casex({hypercharge_i,cpu_pause_n,screen_x[3:0]}) 
-    6'b110001,
-    //6'b110010,
-    6'b110011,
-    //6'b110100,
-    6'b110101,
-    //6'b110110,
-    6'b110111,
-    //6'b111000,
-    6'b111001,
-    //6'b111010,
-    6'b111011,
-    //6'b111100:  ce_cpu <= 1;
-    6'b111101,
-    6'b111111:  ce_cpu <= 1;
-    //6'b111101,
-    //6'b111111:  ce_cpu <= 1; 
-    //6'b1xxxxx:  ce_cpu <= |screen_x[3:0];
+`ifdef CORE_25MHZ    
+    6'b11xxxx:  ce_cpu <= screen_x[3:0] != 4'b1111 && screen_x[3:0] != 4'b1110;
+    //6'b11xxxx:  ce_cpu <= |screen_x[3:0] && screen_x[3:0] != 4'b1111 && screen_x[3:0] != 4'b1110;
     6'b010101:  ce_cpu <= 1;
+`else
+    6'b11xxxx:  ce_cpu <= screen_x[3:0] != 4'b1111; // @50MHz this leaves enough cycles for the last CPU access to complete, so no 1110
+    6'b010101:  ce_cpu <= cediv50;
+`endif    
     default:    ce_cpu <= 0;
     endcase
 
-assign      clk_cpu   = clk25;
 
+`ifdef CORE_25MHZ
 assign      ce_shifter_load = screen_x[3:0] == 4'b0000; // seems to contradict with ce_cpu @ 0001, but it doesn't
-
+`else
+assign      ce_shifter_load = screen_x[3:0] == 4'b0000; 
+`endif
 
 assign greenleds = {cpu_rdy, b0_debounced, kbd_available, usb_we_n, ram_we_n, cpu_we_n, cpu_wt, cntr[23]};
 
@@ -207,7 +213,7 @@ always @(posedge clk_cpu)
 
 assign b0_debounced = |debounce_counter;    
 
-always @(posedge clk_cpu) begin
+always @(posedge clk25) begin
 	if (reset_in) begin
 		jtag_hlda <= 0;
 	end 
@@ -344,7 +350,7 @@ wire kbd_ar2;
 reg [2:0] 		seq;
 reg             rdsamp;
 reg             wtsamp;
-always @(posedge clk25) begin
+always @(posedge clk_cpu) begin
 	if(reset_in) begin
 		clk_cpu_count <= 0;
 		seq <= 0;
@@ -352,10 +358,8 @@ always @(posedge clk25) begin
 	end
 	else begin
 		clk_cpu_count <= clk_cpu_count + 1;
-		//seq <= {seq[1:0],( cpu_rd | cpu_wt) & ce_cpu };
 		rdsamp <= cpu_rd;
 		wtsamp <= cpu_wt;
-		//seq <= {seq[1:0],( cpu_rd | cpu_wt) };
 		seq <= {seq[1:0], (~rdsamp & cpu_rd) | (~wtsamp & cpu_wt) };
 	end
 end  
@@ -366,7 +370,13 @@ assign cpu_we_n = ~(cpu_wt & (seq[1:0] == 2'b01) );
 
 reg ram_reply;
 
-always @(negedge clk25) begin
+// negedge is faster because it saves a trailing clock in many CPU states,
+// but it wouldn't work if the core clock is 50MHz
+`ifdef CORE_25MHZ    
+always @(negedge clk_cpu) begin
+`else
+always @(posedge clk_cpu) begin
+`endif
     if (reset_in) begin
         ram_reply <= 1'b0;
     end
@@ -451,28 +461,10 @@ shifter shifter(.clk25(clk25),.color(color),.R(R),.G(G),.B(B),
 assign RST_IN = 1'b0;
 assign vga_addr = { screen_y[8:1] - 'o0330 + roll , screen_x[8:4]};
 
-/*
-reg [15:0] ram_addr;
-always @*
-	casex ({~(cpu_oe_n & cpu_we_n),~(usb_we_n & usb_oe_n)})
-		2'b10:		ram_addr <= {1'b0, cpu_adr[15:1]};
-		2'bx1:		ram_addr <= usb_addr;
-		default:	ram_addr <= {5'b00001, vga_addr};
-	endcase
-
-reg [15:0] ram_out_data;
-always @*
-	casex ({~cpu_we_n,~usb_we_n}) 
-		2'b10:		ram_out_data <= data_from_cpu;
-		2'bx1:		ram_out_data <= usb_a_data;
-		default: 	ram_out_data <= data_from_cpu;
-	endcase
-*/
-	
 
 assign ram_addr = 
-    ce_shifter_load ? {5'b00001, vga_addr} :
 	~(usb_we_n & usb_oe_n)? usb_addr:			
+    ce_shifter_load ? {5'b00001, vga_addr} :
     {1'b0, cpu_adr[15:1]};
 
 wire [15:0] ram_out_data = ~cpu_we_n ? data_from_cpu: ~usb_we_n ? usb_a_data : 16'h ffff;

@@ -16,9 +16,14 @@
 
 `default_nettype none
 
+// Enable access to SRAM and debug via the DE1 Control Panel
 `define WITH_DE1_JTAG
+// Not recommeded: use SW7=0 to stop the CPU and SW6=1 enable Control Panel access
 `define JTAG_AUTOHOLD
-//`define DATAPATH_ON_NEGEDGE
+// CORE_25MHZ for core and CPU clocked by 25MHz clock. Clocked by 50MHz otherwise.
+`define CORE_25MHZ 
+
+//`define DATAPATH_ON_NEGEDGE -- no more negedges 
 
 module bk0010de1(
 		CLOCK_27, 
