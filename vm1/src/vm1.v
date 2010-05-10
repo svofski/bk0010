@@ -1,6 +1,6 @@
 // =======================================================
 // 1801VM1 SOFT CPU
-// Copyright(C)2005 Alex Freed, 2008 Viacheslav Slavinsky
+// Copyright(C)2005 Alex Freed, 2008-2010 Viacheslav Slavinsky 
 // Based on original POP-11 design (C)2004 Yoshihiro Iida
 //
 // Distributed under the terms of Modified BSD License
