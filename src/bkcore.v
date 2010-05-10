@@ -300,7 +300,7 @@ end
 
 assign _cpu_irq_in = kbd_available & ~kbd_int_flag &(_Arbiter_cpu_pri == 0);
 
-always @(posedge m_clock) begin
+always @(posedge m_clock or negedge ~p_reset) begin
 	if(p_reset) begin
 	   kbd_int_flag <= 1'b0;
 	   bad_addr <= 1'b0;
@@ -327,28 +327,45 @@ always @(posedge m_clock) begin
 				end
 				
 				if(_cpu_rd) begin
-					if(kbd_data_sel) begin
-						_cpu_dati <= {8'b0000000, kbd_data};
-					end
-					else if(kbd_state_sel) begin
-						_cpu_dati <= {8'b0000000, kbd_available, kbd_int_flag,6'b000000};
-					end else if(initreg_sel  ) begin
-						_cpu_dati <= {init_reg_hi, 1'b1, ~keydown, tape_in, 1'b0, 1'b0, stopkey_latch|initreg_access_latch, 1'b0,1'b0};
+					if (initreg_sel) begin
 						stopkey_latch <= 1'b0;
 						initreg_access_latch <= 1'b0;
-					end else if(roll_sel ) begin
-						_cpu_dati <= roll;
-					end else if (usr_sel) begin
-                        _cpu_dati <= 16'o0;     // this could be a joystick...
-                    end
+					end
 				end // rd
-
 			end // good access to reg space
 		end	 //reg space
 		else if (rom_space & _cpu_wt)
 			bad_addr = 1;
-		else if ( _cpu_rd & ~reg_space) begin
+		else if (_cpu_rd & ~reg_space) begin
 			bad_addr = 0;
+		end else begin
+			bad_addr = 0; // don't hold error
+		end
+	end
+end
+
+always @* begin
+    _cpu_dati = 16'o177777;
+
+	case (1'b1) 
+	reg_space: 
+        begin
+            if(kbd_data_sel) begin
+                _cpu_dati = {8'b0000000, kbd_data};
+            end
+            else if(kbd_state_sel) begin
+                _cpu_dati = {8'b0000000, kbd_available, kbd_int_flag,6'b000000};
+            end else if(initreg_sel  ) begin
+                _cpu_dati = {init_reg_hi, 1'b1, ~keydown, tape_in, 1'b0, 1'b0, stopkey_latch|initreg_access_latch, 1'b0,1'b0};
+            end else if(roll_sel ) begin
+                _cpu_dati = roll;
+            end else if (usr_sel) begin
+                _cpu_dati = 16'o0;     // this could be a joystick...
+            end
+		end	 //reg space
+		
+    ~reg_space:
+        begin
 			if( ~_cpu_byte)
 				_cpu_dati = in;
 			// byte read instructions
@@ -356,11 +373,11 @@ always @(posedge m_clock) begin
 				_cpu_dati = {8'b0000000, in[15:8]} ;
 			else
 				_cpu_dati = {8'b0000000,in[7:0]} ;
-		end else begin
-			bad_addr = 0; // don't hold error
 		end
-	end
+	endcase
+	
 end
+
 
 
 endmodule

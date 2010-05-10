@@ -154,40 +154,36 @@ wire            full_screen;
 reg [15:0] 		latched_ram_data;
 reg [15:0] 		data_from_cpu;
 
-reg [1:0] 		one_shot;
-
 
 assign      enable_bpts = switch[6];
 assign      cpu_pause_n = switch[7];
 
 always @*
     casex({hypercharge_i,cpu_pause_n,screen_x[3:0]}) 
-`ifdef DATAPATH_ON_NEGEDGE    
     6'b110001,
+    //6'b110010,
     6'b110011,
+    //6'b110100,
     6'b110101,
+    //6'b110110,
     6'b110111,
+    //6'b111000,
     6'b111001,
+    //6'b111010,
     6'b111011,
+    //6'b111100:  ce_cpu <= 1;
     6'b111101,
-    6'b111111:  ce_cpu <= 1; 
+    6'b111111:  ce_cpu <= 1;
+    //6'b111101,
+    //6'b111111:  ce_cpu <= 1; 
+    //6'b1xxxxx:  ce_cpu <= |screen_x[3:0];
     6'b010101:  ce_cpu <= 1;
-`else    
-    6'b110100,
-    6'b110101,
-    6'b111000,
-    6'b111001,
-    6'b111100,
-    6'b111101:   ce_cpu <= 1;
-    6'b010100,
-    6'b010101:   ce_cpu <= 1;
-`endif    
     default:    ce_cpu <= 0;
     endcase
 
 assign      clk_cpu   = clk25;
 
-assign      ce_shifter_load = screen_x[3:0] == 4'b0001; // seems to contradict with ce_cpu @ 0001, but it doesn't
+assign      ce_shifter_load = screen_x[3:0] == 4'b0000; // seems to contradict with ce_cpu @ 0001, but it doesn't
 
 
 assign greenleds = {cpu_rdy, b0_debounced, kbd_available, usb_we_n, ram_we_n, cpu_we_n, cpu_wt, cntr[23]};
@@ -346,50 +342,40 @@ wire kbd_ar2;
 
 // SEQ is here
 reg [2:0] 		seq;
-
+reg             rdsamp;
+reg             wtsamp;
 always @(posedge clk25) begin
 	if(reset_in) begin
 		clk_cpu_count <= 0;
 		seq <= 0;
-		one_shot <= 0;
+		{rdsamp,wtsamp} <= 0;
 	end
 	else begin
 		clk_cpu_count <= clk_cpu_count + 1;
-		seq <= {seq[1:0],( cpu_rd | cpu_wt) & ce_cpu };
-		one_shot <= {one_shot[0], ( cpu_rd | cpu_wt)};
+		//seq <= {seq[1:0],( cpu_rd | cpu_wt) & ce_cpu };
+		rdsamp <= cpu_rd;
+		wtsamp <= cpu_wt;
+		//seq <= {seq[1:0],( cpu_rd | cpu_wt) };
+		seq <= {seq[1:0], (~rdsamp & cpu_rd) | (~wtsamp & cpu_wt) };
 	end
 end  
 
-//   _   _   _   _   _   _   _   _
-// _/0\_/1\_/2\_/3\_/4\_/5\_/6\_/7\_    
-//    _______________
-// __/               XXX            cpu_rd
-// ___     ___     ___     ___
-//    \___/   \___/   \___/   \___  ce_cpu
-//                        
-//   000 000 001 010 100 000        seq
-// __________     ________
-//           \___/                  cpu_oe_n
-//                ________________
-// ______________/latched_ram_data
-//
-assign cpu_oe_n = ~(cpu_rd & (seq[2] == 0) & (seq[0] == 1) & cpu_rdy ); 
-assign cpu_we_n = ~(cpu_wt & (seq[1:0]== 2'b01) ); // FIXME
+assign cpu_oe_n = ~(cpu_rd & (seq[1:0] == 2'b01));
+ 
+assign cpu_we_n = ~(cpu_wt & (seq[1:0] == 2'b01) ); 
 
 reg ram_reply;
 
-// working on negedge allows to latch ram data on the first cycle after seq is loaded
-// posedge is prettier
-always @(posedge clk25) begin
+always @(negedge clk25) begin
     if (reset_in) begin
         ram_reply <= 1'b0;
     end
-    else if(~cpu_oe_n & (seq == 3'b001)) begin
+    else if(~cpu_oe_n) begin
         latched_ram_data <= ram_a_data;
         // generate reply for the cpu
         ram_reply <= 1'b1;
     end 
-    else if (~cpu_we_n & (seq[1:0] == 2'b01)) begin
+    else if (~cpu_we_n) begin
         ram_reply <= 1'b1;
     end
     else if (ram_reply && ~(cpu_rd|cpu_wt)) begin

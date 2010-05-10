@@ -10,9 +10,10 @@
 
 `include "instr.h"
 
-module datapath(clk, ce, clkdbi, cedbi, reset_n, dbi, dbo, dba, opcode, psw, ctrl, alucc, taken, PC, ALU1, ALUOUT, SRC, DST, Rtest);
+module datapath(clk, ce, clkdbi, cedbi, reset_n, dbi, din_active, dbo, dba, opcode, psw, ctrl, alucc, taken, PC, ALU1, ALUOUT, SRC, DST, Rtest);
 input			clk, ce, clkdbi, cedbi, reset_n;
 input 	[15:0]	dbi;
+input           din_active; // needed to select between registered/direct inputs
 output reg[15:0]dbo;
 output reg[15:0]dba;
 output	[15:0]	opcode;
@@ -55,22 +56,29 @@ reg  [15:0] ADR;
 reg  [15:0] ALU1, ALU2;
 reg	 [15:0]	REGsel;
 
-reg	 [2:0]	priority;
+reg	 [2:0]	prio;
 reg			trapbit;
 reg			fn, fz, fv, fc;
 
 assign	opcode = {OPC_BYTE,OPC};
 
-assign 	psw = {priority,trapbit,fn,fz,fv,fc};
+assign 	psw = {prio,trapbit,fn,fz,fv,fc};
 
 
 reg taken; // latch
 
-reg [15:0] dbi_r;
-
+// deliver dbi as soon as possible, but hold it for one more clock-enabled cycle
+reg [15:0] dbi_reg;
 always @(posedge clkdbi) 
     if (cedbi) 
-        dbi_r <= dbi;
+        dbi_reg <= dbi;
+        
+//wire [15:0] dbi_r = din_active ? dbi : dbi_reg;
+wire [15:0] dbi_r = dbi;
+
+initial begin
+ // $monitor("dbi_r=%o", dbi_r);
+end
 
 always @* //@(ctrl[`CCTAKEN])
     taken = 	( ({OPC_BYTE,OPC[10:9]}==0)                             )|
@@ -84,7 +92,7 @@ always @* //@(ctrl[`CCTAKEN])
 
 
 // = ALU1
-always @* case (1'b1) 
+always @* case (1'b1) // synopsys parallel_case 
 	ctrl[`PCALU1]:		ALU1 <= PC;
 	ctrl[`SPALU1]:		ALU1 <= SP;
 	ctrl[`DSTALU1]:		ALU1 <= DST;
@@ -95,20 +103,20 @@ always @* case (1'b1)
 	endcase
 
 // = ALU2
-always @* case (1'b1) 
+always @* case (1'b1) // synopsys parallel_case
 	ctrl[`DSTALU2]: ALU2 <= DST;
 	ctrl[`SRCALU2]: ALU2 <= SRC;
 	ctrl[`OFS8ALU2]: ALU2 <= { {7{opcode[7]}}, opcode[7:0], 1'b0};
 	ctrl[`OFS6ALU2]: ALU2 <= { opcode[5:0], 1'b0 };
-	default:		ALU2 <= 16'b0;  // unlatch
+	default:		ALU2 <= 16'b0;  // unsure
 	endcase
 	
 // = REGsel	
 always @*
 	case (1'b1) 
-	ctrl[`REGSEL]: 	REGsel <= R[OPC[2:0]];
+	ctrl[`REGSEL]: 	begin REGsel <= R[OPC[2:0]]; /*$strobe("REGsel=R[%d]", OPC[2:0]);*/ end
 	ctrl[`REGSEL2]:	REGsel <= R[OPC[8:6]];
-	default:		REGsel <= 16'b0; // unlatch
+	default:		REGsel <= 16'b0; // unsure
 	endcase
 
 // = REGin
@@ -118,27 +126,27 @@ always @* case (1'b1)
 	ctrl[`SRCREG]:	REGin <= SRC;
 	ctrl[`ADRREG]:	REGin <= ADR;
 	ctrl[`PCREG]:	REGin <= R[7];
-	ctrl[`DBIREG]:	REGin <= dbi_r;
-	default:		REGin <= 16'b0; // unlatch
+	ctrl[`DBIREG]:	begin REGin <= dbi_r; /* $display("REGin=%o", dbi_r); */ end
+	default:		REGin <= 16'b0; // unsure
 	endcase
 
 // = dba
-always @* case (1'b1) 
+always @* case (1'b1) // synopsys parallel_case
 	ctrl[`DBAPC]:	dba <= PC;
 	ctrl[`DBASP]:	dba <= SP;
-	ctrl[`DBADST]:	dba <= DST;
+	ctrl[`DBADST]:	begin dba <= DST; /*$display("DBADST %o", DST); */ end
 	ctrl[`DBASRC]:  dba <= SRC;
 	ctrl[`DBAADR]:	dba <= ADR;
-	default:		dba <= 16'h0; // unlatch
+	default:		begin dba <= 16'h0; /* $display("DBA default");*/ end // a must
 	endcase
 
 // = dbo
-always @* case (1'b1) 
+always @* case (1'b1) // synopsys parallel_case
 	ctrl[`DBOSEL]:	dbo <= REGsel;
 	ctrl[`DBODST]:	dbo <= DST;
 	ctrl[`DBOSRC]:	dbo <= SRC;
 	ctrl[`DBOADR]:	dbo <= ADR;	
-	default:		dbo <= 16'b0; // unlatch
+	default:		dbo <= 16'b0; // unsure
 	endcase
 	
 // @ opcode
@@ -183,12 +191,12 @@ always @(posedge clk or negedge reset_n)
 `endif
 	end else 
 	if (ce) begin
-		if (ctrl[`ALUPC]) 	R[7] <= alu_out;
+		if (ctrl[`ALUPC]) 	begin R[7] <= alu_out; /*$display("alu1=%o inc2=%o alu_out=%o", ALU1, ctrl[`INC2], alu_out);*/ end
 		if (ctrl[`DBIPC]) 	R[7] <= dbi_r;
-		if (ctrl[`SETPCROM])R[7] <= 16'o 100000;
+		if (ctrl[`SETPCROM])begin R[7] <= 16'o 100000; end
 		if (ctrl[`FPPC])	R[7] <= R[5];
 		if (ctrl[`SELPC])	R[7] <= REGsel;
-		if (ctrl[`ADRPC])	R[7] <= ADR;
+		if (ctrl[`ADRPC])	begin R[7] <= ADR; /*$display("ADRPC: PC=%o", ADR);*/ end
 		if (ctrl[`ALUSP])	R[6] <= alu_out;
 		if (ctrl[`DBIFP])	R[5] <= dbi_r;
 		if (ctrl[`SETREG])	R[OPC[2:0]] <= REGin;
@@ -205,9 +213,9 @@ always @(posedge clk or negedge reset_n)
 		SRC <= 0;
 	end
 	else if (ce) begin
-		case (1'b1) 
+		case (1'b1) // synopsis parallel_case
 		ctrl[`SELADR]:	ADR <= REGsel;
-		ctrl[`DSTADR]:	ADR <= DST;
+		ctrl[`DSTADR]:	begin ADR <= DST; /* $display("DSTADR: ADR=%o", DST); */ end
 		ctrl[`SRCADR]:	ADR <= SRC;
 		ctrl[`CLRADR]:	ADR <= 0;
 		endcase
@@ -217,18 +225,18 @@ always @(posedge clk or negedge reset_n)
 				DST <= psw;
 			end
 			
-		case (1'b1) 
-		ctrl[`DBIDST]:	DST <= dbi_r;
+		case (1'b1) // synopsis parallel_case
+		ctrl[`DBIDST]:	begin DST <= dbi_r;/* $display("DBIDST: DST=%o", dbi_r);*/ end
 		ctrl[`ALUDST]:	DST <= alu_out;
 		ctrl[`ALUDSTB]:	DST <= OPC_BYTE ? {DST[15:8],alu_out[7:0]} : alu_out;
-		ctrl[`SELDST]:	DST <= REGsel;
+		ctrl[`SELDST]:	begin DST <= REGsel; /*$display("SELDST: DST <= %o", REGsel);*/ end
 		//ctrl[`PSWDST]:  DST <= psw[7:0];
 		endcase
 		
-		case (1'b1) 
-		ctrl[`DBISRC]:  SRC <= dbi_r;
-		ctrl[`ALUSRC]:	SRC <= alu_out;
-		ctrl[`SELSRC]:	SRC <= REGsel;
+		case (1'b1) // synopsis parallel_case
+		ctrl[`DBISRC]:  begin SRC <= dbi_r; /*$display("DBISRC: SRC=%o",dbi_r);*/ end
+		ctrl[`ALUSRC]:	begin SRC <= alu_out; /*$display("ALUSRC: src=%o", alu_out);*/ end
+		ctrl[`SELSRC]:	begin SRC <= REGsel; /*$display("SELSRC: SRC <= %o", REGsel);*/ end
 		
 		ctrl[`BUSERR]:	SRC <= `TRAP_BUS;
 		ctrl[`SEGERR]:	SRC <= `TRAP_SEG;
@@ -243,16 +251,16 @@ always @(posedge clk or negedge reset_n)
 // @ ps
 always @(posedge clk) 
 	if (~reset_n) begin
-        priority <= 0;
+        prio <= 0;
         trapbit <= 0;
 	end else if (ce) begin
 		case (1'b1) // synopsys parallel_case
 		ctrl[`DBIPS], 	
 		ctrl[`VECTORPS]:
-			{priority,trapbit,fn,fz,fv,fc} <= dbi_r[7:0];
+			{prio,trapbit,fn,fz,fv,fc} <= dbi_r[7:0];
 			
 		ctrl[`DSTPSW]:
-			{priority,fn,fz,fv,fc} <= {DST[7:5],DST[3:0]};
+			{prio,fn,fz,fv,fc} <= {DST[7:5],DST[3:0]};
 			
 		ctrl[`TSTSRC]:
 			{fn,fz} <= {SRC[15],~|SRC};
@@ -272,7 +280,7 @@ always @(posedge clk)
 				if (OPC[1]) fv <= OPC[4];
 				if (OPC[0]) fc <= OPC[4];
 			end
-		ctrl[`SPL]:	priority <= OPC[2:0];
+		ctrl[`SPL]:	prio <= OPC[2:0];
 		endcase
 	end
 
@@ -322,7 +330,7 @@ myalu ALU(
 	.sxt (ctrl[`SXT ]),
 	.mov (ctrl[`MOV ]),
 	.cmp (ctrl[`CMP ]),
-    .bit (ctrl[`BIT ]),
+    .bit_ (ctrl[`BIT ]),
 	.bic (ctrl[`BIC ]),
 	.bis (ctrl[`BIS ]),
 	.exor(ctrl[`EXOR]),

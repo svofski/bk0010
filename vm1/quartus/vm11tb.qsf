@@ -23,14 +23,13 @@
 # and any changes you make may be lost or overwritten.
 
 
-set_global_assignment -name DEVICE EP2C15AF484C6
+set_global_assignment -name DEVICE EP2C70F896C6
 set_global_assignment -name FAMILY "Cyclone II"
 set_global_assignment -name TOP_LEVEL_ENTITY vm1
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION 7.1
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "02:35:00  JUNE 27, 2008"
-set_global_assignment -name LAST_QUARTUS_VERSION "8.0 SP1"
+set_global_assignment -name LAST_QUARTUS_VERSION 9.0
 set_global_assignment -name DEVICE_FILTER_PACKAGE FBGA
-set_global_assignment -name DEVICE_FILTER_PIN_COUNT 484
 set_global_assignment -name DEVICE_FILTER_SPEED_GRADE FASTEST
 set_global_assignment -name SMART_RECOMPILE ON
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
@@ -50,5 +49,7 @@ set_global_assignment -name VERILOG_FILE ../src/testbench/ram1024x16.v
 set_global_assignment -name MIF_FILE ../src/testbench/ramski.mif
 set_global_assignment -name INCREMENTAL_VECTOR_INPUT_SOURCE vm1.vwf
 set_global_assignment -name END_TIME "2 us"
-set_global_assignment -name USE_CONFIGURATION_DEVICE ON
 set_global_assignment -name CYCLONEII_OPTIMIZATION_TECHNIQUE SPEED
+set_global_assignment -name MISC_FILE "S:/svofski-posedge/vm1/quartus/vm11tb.dpf"
+set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
+set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85

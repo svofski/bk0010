@@ -1,4 +1,4 @@
-`define NOSLOWRPLY
+`define MEDRPLY
 `define VM1TESTS
 
 module simme;
@@ -53,7 +53,11 @@ integer    disp, fp, memf, error, i;
     end
   
     $write("100000: ");
+`ifdef VM1TESTS
     memf = $fopen("asmtests/test1.pdp", "rb");
+`else    
+    memf = $fopen("asmtests/felix6.pdp", "rb");
+`endif
     error = 1;
     for (i = 0; error == 1; i = i + 1) begin
         error = $fread(tmpbyte, memf);
@@ -67,7 +71,7 @@ integer    disp, fp, memf, error, i;
     
     
 `ifdef VM1TESTS    
-    memf = $fopen("bktests/791404", "rb");
+    memf = $fopen("bktests/791401", "rb");
     error = 1;
     for (i = 0; error == 1; i = i + 1) begin
         error = $fread(tmpbyte, memf);
@@ -80,8 +84,7 @@ integer    disp, fp, memf, error, i;
     $write("initialized ram 000000 with %d words\n000200: ", i);
     for (i = 'o100; i < 'o100+4; i = i + 1) $write("%o ", ram1[i]);
     $display();
-`endif
-    
+`endif    
   end
 
 
@@ -201,16 +204,26 @@ always @* cpu_rply <= cpu_sync;
 wire cpu_sync, cpu_rd, cpu_we, cpu_byte, cpu_bsy, cpu_init, cpu_ifetch;
 reg  cpu_rply;
 
+wire ce;
+
+reg [1:0] cereg = 0;
+always @(posedge m_clock) begin: _ce
+    cereg <= cereg + 'b1;
+end
+
+assign ce = cereg == 2'b01;
+
+wire [15:0] cpu_d_in_bus = ce ? cpu_d_in : 16'h0000;
 
 vm1 cpu
           (.clk(m_clock), 
-           .ce(1),
+           .ce(ce),
            .reset_n(mreset_n),
-           .data_i(cpu_d_in),
+           .data_i(cpu_d_in_bus),
            .data_o(cpu_d_o),
            .addr_o(cpu_a_o),
            .SYNC(cpu_sync),        // o: address set
-           .RPLY(cpu_rply),        // i: reply to DIN or DOUT
+           .RPLY(cpu_rply & ce),        // i: reply to DIN or DOUT
            .DIN(cpu_rd),         // o: data in flag
            .DOUT(cpu_we),        // o: data out flag
            .WTBT(cpu_byte),        // o: byteio op/odd address
@@ -230,15 +243,15 @@ vm1 cpu
     //t0 = top.cpu.cpu.rs232.sender.send_buf&8'h7f;
     //if(t0 == 8'h0d) t0 = 8'h0a;
     //$display("cpu_din:%x cpu_a:%x", cpu_d_in, cpu_a_o);
-    $display("pc:%o s/r:%x%x if0:%x %s%s di:%o do:%o a:%o opc:%o s:%d/%b/%s R1-6:%o,%o,%o,%o %o", 
+    $display("pc:%o s/r:%x%x if0:%x %s%s di:%o do:%o a:%o opc:%o s:%d/%b/%s R0-6:%o,%o,%o,%o,%o %o", 
                 cpu.PC, cpu_sync, cpu_rply, cpu_ifetch,
                 cpu_rd?"R":" ", cpu_we?"W":" ", 
                 cpu_d_in, cpu_d_o, cpu_a_o,
                 cpu.OPCODE, cpu.controlr.state, 
                 cpu.psw[3:0],
                 cpu.psw[4] ? "t":"_",
-                cpu.dp.R[1], cpu.dp.R[2], cpu.dp.R[3],
-                cpu.dp.R[4], cpu.dp.R[5], cpu.dp.R[6], 
+                cpu.dp.R[0], cpu.dp.R[1], cpu.dp.R[2], cpu.dp.R[3],
+                cpu.dp.R[4], cpu.dp.R[5], cpu.dp.R[6] 
                 //top.cpu.dp.psw,
                 //ram1[top.cpu.dp.R[6]/2]
                 //top.cpu.op_decoded
@@ -258,9 +271,14 @@ vm1 cpu
             end
             
             $display("\nMemory:");
+            for (i = 'o370; i <= 'o410; i = i + 8) begin
+                $display("%o: %o %o %o %o", i, ram1[i/2], ram1[i/2+1],ram1[i/2+2],ram1[i/2+3]);
+            end
+
             for (i = 'o1720; i <= 'o2000; i = i + 8) begin
                 $display("%o: %o %o %o %o", i, ram1[i/2], ram1[i/2+1],ram1[i/2+2],ram1[i/2+3]);
             end
+            
             
             $finish;
         end
@@ -275,9 +293,9 @@ vm1 cpu
 
   initial begin
     $display("BM1 simulation begins");
-    disp = 1;
+    disp = 0;
     
-    #(STEP*80000) begin
+    #(STEP*280000/*80000*/) begin
         $display("\nend by step limit @#177776=%o", ram2[16383]);
         $finish;
     end
