@@ -60,7 +60,9 @@ module vm1(clk,
            test_control,
            test_bus,
            //dpcmd,
+`ifdef WITH_RTEST	
            Rtest,
+`endif           
            taken
            );
 
@@ -110,7 +112,9 @@ output	[15:0]	psw;
 output			taken;
 output	[15:0]	OPCODE;
 //output  [127:0] dpcmd;
+`ifdef WITH_RTEST	
 output	[143:0]	Rtest;
+`endif
 
 assign ALUCC = alucc;
 assign idccat = {idc_unused,idc_cco,idc_bra,idc_nof,idc_rsd,idc_dop,idc_sop};
@@ -191,7 +195,9 @@ datapath dp(
 	.ALUOUT(ALUOUT),
 	.SRC(SRC),
 	.DST(DST)
-	//.Rtest(Rtest)
+`ifdef WITH_RTEST	
+	, .Rtest(Rtest)
+`endif	
 	);
 	
 assign test_bus = {DIN|DOUT,DIN,DOUT,RPLY,error_i,error_bus,DIN,DOUT};

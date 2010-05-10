@@ -228,13 +228,11 @@ always @(posedge clk25) begin
 end
 
 // ------------ simple breakpoint
-//wire breakpoint_latch = 0;
-
 reg [15:0] breakpoint_addr;
 
 always @*
     case (usb_addr)
-    'h8010:         data_to_interface <= cpu_registers[15:0]    ;  // = R[0];
+    'h8010:         data_to_interface <= cpu_registers[15:0]   ;  // = R[0];
     'h8011:         data_to_interface <= cpu_registers[31:16]  ;   // = R[1];
     'h8012:         data_to_interface <= cpu_registers[47:32]  ;   // = R[2];
     'h8013:         data_to_interface <= cpu_registers[63:48]  ;   // = R[3];
@@ -263,20 +261,8 @@ always @(negedge clk_cpu) begin
     if (ce_cpu) begin
         if (enable_bpts) begin
             if (ifetch & cpu_rd) begin
-                //case (cpu_adr)
-                //'o100132, // EMT dispatch: JSR PC, (R5)
-                //'o100742, // EMT 4 
-                //'o110474          // draw a line at (R3) with contents of R1
-                //'o110514            // exit from ^^
-                //'o111130            // draw column marks
-                //'o146404:  
                 if (cpu_adr == breakpoint_addr) 
-                begin    // TRAP handler
-                    //if (cpu_opcode[7:0] == 'o6) // TRAP 6
                         breakpoint_latch <= 1'b1;
-                    //if (cpu_opcode == 'o104510) // TRAP 110
-                end
-                //endcase
             end
         end
         
@@ -341,9 +327,16 @@ wire kbd_ar2;
 	.tape_in(tape_in),
 	.redleds(redleds),
 	.testselect(switch[3:2]),
+`ifdef WITH_RTEST	
 	.cpu_sp(cpu_sp),
 	.cpu_registers(cpu_registers)
+`endif	
     );
+    
+`ifndef WITH_RTEST
+ assign cpu_registers = 0;
+ assign cpu_sp = 0;
+`endif    
 
 
 // SEQ is here

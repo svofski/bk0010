@@ -40,9 +40,12 @@ module bkcore(
         // scary stuff
         input        [1:0]  testselect,
         output reg   [7:0]  redleds,
-        output      [15:0]  cpu_opcode,
+        output      [15:0]  cpu_opcode
+`ifdef WITH_RTEST	
+        ,
         output      [15:0]  cpu_sp,
         output     [143:0]  cpu_registers
+`endif        
     );
 
 wire    [2:0]   _Arbiter_cpu_pri;
@@ -123,10 +126,14 @@ vm1 cpu(.clk(clk),
 		.test_control(test_control),
 		.test_bus(test_bus),
 		.OPCODE(cpu_opcode),
+`ifdef WITH_RTEST	
 		.Rtest(cpu_registers)
+`endif		
         );		
         
+`ifdef WITH_RTEST	
 assign cpu_sp = cpu_registers[111:96];        	
+`endif 
 
 //
 // A medium quick bus cycle: CPU notices RPLY on 3rd clock/ce

@@ -117,10 +117,10 @@ assign     ifetch = state == FS_IF0;
 
 `define dp(x) dpcmd[x] = 1'b1
 
-reg        rsub;
+reg         rsub, rsub_r;       
+reg         mbyte_r;            // registered value of (comb) mbyte
 
 // stretched ready
-
 reg         ready_r;
 always @(posedge clk or negedge reset_n)
     if (!reset_n) 
@@ -220,9 +220,11 @@ always @(posedge clk or negedge reset_n) begin
         end
         
         
-        datist_r <= datist;
-        datost_r <= datost;
-        opsrcdst_r <= opsrcdst_to;
+        datist_r    <= datist;
+        datost_r    <= datost;
+        opsrcdst_r  <= opsrcdst_to;
+        rsub_r      <= rsub;
+        mbyte_r     <= mbyte;
     end
 end
 
@@ -239,6 +241,9 @@ always @* begin
         opsrcdst_to = opsrcdst_r; // don't allow opsrcdst to latch
         
         next = state;
+        
+        mbyte = mbyte_r;
+        rsub  = rsub_r;
         
         case (state)
         WAIT:   begin 
@@ -309,7 +314,8 @@ always @* begin
                         rsub = 1'b0;
                     end 
                     else if (idcop[`dsub]) begin
-                        rsub = 1'b1; `dp(`RESET_BYTE);
+                        rsub = 1'b1; 
+                        `dp(`RESET_BYTE);
                     end
                 end
                 
@@ -511,7 +517,7 @@ always @* begin
                     idcop[`dbic]: begin `dp(`SRCALU1); `dp(`DSTALU2); `dp(`BIC); `dp(`ALUDSTB); `dp(`ALUCC); next = WB_0; end
                     idcop[`dbis]: begin `dp(`SRCALU1); `dp(`DSTALU2); `dp(`BIS); `dp(`ALUDSTB); `dp(`ALUCC); next = WB_0; end
                     idcop[`dadd]: 
-                                if (!rsub) begin
+                                if (!rsub_r) begin
                                     `dp(`SRCALU1); `dp(`DSTALU2); `dp(`ADD); `dp(`ALUDSTB); `dp(`ALUCC); next = WB_0; 
                                 end else begin
                                     `dp(`SRCALU2); `dp(`DSTALU1); `dp(`SUB); `dp(`ALUDSTB); `dp(`ALUCC); next = WB_0; 
@@ -576,6 +582,7 @@ always @* begin
                                             end
                                           end
                                     EX_1: begin
+                                            mbyte = 1'b0;
                                             if (ierror) begin
                                                 `dp(`BUSERR);
                                                 next = TRAP_SVC;
@@ -584,7 +591,6 @@ always @* begin
                                                 `dp(`PCREG); `dp(`SETREG2);
                                                 next = EX_2;
                                             end else begin
-                                                mbyte = 1'b0;
                                                 dataout(do_com);
                                                 `dp(`REGSEL2); `dp(`DBOSEL); `dp(`DBASP);
                                             end
@@ -604,6 +610,7 @@ always @* begin
                                           end
                                     
                                     EX_1: begin
+                                            mbyte = 1'b0;
                                             `dp(`DBASP);
                                             if (ierror) begin
                                                 `dp(`BUSERR);
@@ -616,7 +623,6 @@ always @* begin
                                                 `dp(`SPALU1); `dp(`INC2); `dp(`ALUSP);
                                                 next = FS_IF0;
                                             end else begin
-                                                mbyte = 1'b0;
                                                 datain(di_com);
                                             end
                                           end
@@ -628,6 +634,7 @@ always @* begin
                                     `dp(`DBASP);
                                     case (state)
                                     EX_0: begin
+                                            mbyte = 1'b0;
                                             if (ierror) begin
                                                 `dp(`BUSERR);
                                                 next = TRAP_SVC;
@@ -637,11 +644,11 @@ always @* begin
                                                 `dp(`SPALU1); `dp(`INC2); `dp(`ALUSP);
                                                 next = EX_1;
                                             end else begin
-                                                mbyte = 1'b0;
                                                 datain(di_com);
                                             end
                                           end
                                     EX_1: begin
+                                            mbyte = 1'b0;
                                             if (ierror) begin
                                                 `dp(`BUSERR);
                                                 next = TRAP_SVC;
@@ -651,7 +658,6 @@ always @* begin
                                                 `dp(`SPALU1); `dp(`INC2); `dp(`ALUSP);
                                                 next = FS_IF0;
                                             end else begin
-                                                mbyte = 1'b0;
                                                 datain(di_com);
                                             end
                                           end
@@ -670,7 +676,7 @@ always @* begin
                                           end
                                     EX_1: begin
                                             `dp(`DBASP);
-                                            
+                                            mbyte = 1'b0;
                                             if (ierror) begin
                                                 `dp(`BUSERR);
                                                 next = TRAP_SVC;
@@ -680,7 +686,6 @@ always @* begin
                                                 `dp(`SPALU1); `dp(`INC2); `dp(`ALUSP);
                                                 next = FS_IF0;
                                             end else begin
-                                                mbyte = 1'b0;
                                                 datain(di_com);
                                             end
                                           end
@@ -745,13 +750,13 @@ always @* begin
                     `dp(`SAVE_STAT);
                     `dp(`DBISRC);   // read interrupt vector from dbi
                     iako = 1'b1; 
+                    mbyte = 1'b0;
                     if (ierror) begin
                         `dp(`BUSERR);
                         next = TRAP_SVC;
                     end else if (di_ready) begin
                         next = TRAP_1;
                     end else begin
-                        mbyte = 1'b0;
                         datain(di_com);
                     end
                   end
@@ -765,6 +770,7 @@ always @* begin
         TRAP_1:    begin
                     `dp(`DBASRC);    // trap vector
                     `dp(`DBIPC);
+                    mbyte = 1'b0;
                     if (ierror) begin
                         `dp(`BUSERR);
                         next = TRAP_SVC;
@@ -772,7 +778,6 @@ always @* begin
                         `dp(`SRCALU1); `dp(`INC2); `dp(`ALUSRC);
                         next = TRAP_2;
                     end else begin
-                        mbyte = 1'b0;
                         datain(di_t1);
                     end
                 end
@@ -780,6 +785,7 @@ always @* begin
         TRAP_2: begin
                     `dp(`DBASRC);     // vector+2/priority
                     `dp(`VECTORPS);
+                    mbyte = 1'b0;
                     if (ierror) begin
                         `dp(`BUSERR);
                         next = TRAP_SVC;
@@ -787,7 +793,6 @@ always @* begin
                         `dp(`SPALU1); `dp(`DEC2); `dp(`ALUSP);
                         next = TRAP_3;
                     end else begin
-                        mbyte = 1'b0;
                         datain(di_t2);
                     end
                 end
@@ -795,6 +800,7 @@ always @* begin
         TRAP_3:    begin
                     `dp(`DBODST); 
                     `dp(`DBASP);
+                    mbyte = 1'b0;// Mr.Iida has BYTE here
                     if (ierror) begin
                         `dp(`BUSERR);
                         next = TRAP_SVC;
@@ -802,8 +808,6 @@ always @* begin
                         `dp(`SPALU1); `dp(`DEC2); `dp(`ALUSP);
                         next = TRAP_4;
                     end else begin
-                        `dp(`DBODST); `dp(`DBASP);
-                        mbyte = 1'b0;// Mr.Iida has BYTE here
                         dataout(do_t3);
                     end
                 end

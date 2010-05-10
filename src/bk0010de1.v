@@ -21,13 +21,16 @@
 
 // Enable access to SRAM and debug via the DE1 Control Panel
 `define WITH_DE1_JTAG
+
 // Not recommeded: use SW7=0 to stop the CPU and SW6=1 enable Control Panel access
 `define JTAG_AUTOHOLD
+
 // CORE_25MHZ for core and CPU clocked by 25MHz clock.
 // To enable 50MHz clock, comment this out and set optimization to Speed.
 `define CORE_25MHZ 
 
-//`define DATAPATH_ON_NEGEDGE -- no more negedges 
+// Enable to pull out contents of all registers. Without this, SP display on DE1 won't work. 
+//`define WITH_RTEST
 
 module bk0010de1(
 		CLOCK_27, 
