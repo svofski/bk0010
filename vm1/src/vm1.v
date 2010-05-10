@@ -11,12 +11,6 @@
 
 `default_nettype none
 
-//`define TESTBENCH
-
-// 35ns/clk for negedge
-// 15ns/clk for posedge/2
-//`define DATAPATH_ON_NEGEDGE
-
 `include "opc.h"
 `include "instr.h"
 
@@ -29,7 +23,6 @@ module vm1(clk,
 
            error_i,      
            
-           SYNC,        // o: address set
            RPLY,        // i: reply to DIN or DOUT
            DIN,         // o: data in
            DOUT,        // o: data out
@@ -45,8 +38,6 @@ module vm1(clk,
            DMR,         // i: DMA request
            DMGO,        // o: DMA offer
            SACK,        // i: DMA active
-           
-           BSY,         // o: CPU usurps bus
            
            INIT,        // o: peripheral INIT
            
@@ -86,7 +77,6 @@ input           RPLY;        // i: reply to DIN or DOUT
 output  [15:0]  data_o;
 output  [15:0]  addr_o;
 input           error_i;
-output          SYNC;        // o: address set
 output          DIN;         // o: data in
 output          DOUT;        // o: data out
 output          WTBT;        // o: byteio op/odd address
@@ -102,8 +92,6 @@ input           DMR;         // i: DMA request
 output          DMGO;        // o: DMA offer
 input           SACK;        // i: DMA active
            
-output          BSY;         // o: CPU usurps bus
-
 output          INIT;        // o: peripheral INIT
            
 output          SEL1;        // o: 177716 i/o -- no REPLY needed
@@ -129,43 +117,6 @@ assign idccat = {idc_unused,idc_cco,idc_bra,idc_nof,idc_rsd,idc_dop,idc_sop};
 assign taken = dp_taken;
 assign OPCODE = opcode;
 
-`ifdef TESTBENCH
-ram1024x16 burn(
-	.address(ramadr),
-	.clock(clk),
-	.clken(ce),
-	.data(data_o),
-	.wren(DOUT),
-	.q(data_i));
-	
-// simulate some seriouscat bus ram	
-
-assign RPLY = ramreply;
-
-reg [15:0] ramadr;
-reg ramlatch;
-reg ramreply;
-reg syncsample;
-always @(posedge clk) begin
-	if (ctl_ce) begin
-		syncsample <= SYNC;
-		
-		if (~syncsample & SYNC) begin
-			ramadr <= (addr_o - 8'o 100000) >> 1;
-			ramlatch <= 1'b1;
-		end
-		
-		if (ramlatch) ramreply <= 1'b1;
-
-		if (ramreply) begin
-			ramlatch <= 0;
-			ramreply <= 0;
-		end
-	end
-end
-
-`endif
-
 wire	[127:0]			dpcmd;
 wire	[15:0]			opcode;
 output	[`IDC_NOPS:0] 	op_decoded;
@@ -174,10 +125,6 @@ wire	[15:0]			psw;
 wire	[3:0]			alucc;
 wire					dp_taken;
 wire					error_bus;
-
-wire					controlr_dati;
-wire					controlr_dato;
-wire					controlr_byte;
 
 wire	ctl_ce = ce,
 		dp_ce = ce;
@@ -197,9 +144,9 @@ control11 controlr(
 	.dpcmd(dpcmd),
 	.ierror(error_to_control),
 	.ready_i(RPLY),
-	.dati_o(controlr_dati),
-	.dato_o(controlr_dato),
-	.mbyte(controlr_byte),
+	.dati_o(DIN),
+	.dato_o(DOUT),
+	.mbyte(WTBT),
 	.ifetch(IFETCH),
 	.psw(psw),
 	.irq_in(virq_masked),
@@ -231,7 +178,7 @@ datapath dp(
 	.cedbi(cedbi),
 	.reset_n(reset_n),
 	.dbi(data_i), 
-	.din_active(controlr_dati),
+	.din_active(DIN),
 	.dbo(data_o),
 	.dba(addr_o),
 	.opcode(opcode),
@@ -247,27 +194,7 @@ datapath dp(
 	//.Rtest(Rtest)
 	);
 	
-// bus thingy
-wire 	dato = controlr_dato;
-wire	dati = controlr_dati;
-wire	mbyte = controlr_byte;
-
-assign test_bus = {SYNC,DIN,DOUT,RPLY,error_i,error_bus,dati,dato};
-
-busio busr (.clk(clk), 
-			.ce(ce), 
-			.reset_n(reset_n),
-			.bsync(SYNC),
-			.bdin(DIN),
-			.bdout(DOUT),
-			.bwtbt(WTBT),
-			.bbsy(BSY),
-			.breply(RPLY),
-			.berror(error_bus),
-			.dati(dati),
-			.dato(dato),
-			.b(mbyte)
-			);
+assign test_bus = {DIN|DOUT,DIN,DOUT,RPLY,error_i,error_bus,DIN,DOUT};
 
 reg [7:0] initctr;
 wire      initq;
@@ -280,180 +207,5 @@ end
 
 assign INIT = initctr != 0;
 
-endmodule
-
-module  busio(clk, ce, reset_n,
-            bsync, breply, bdin, bdout, bwtbt, bbsy, berror,
-            dati, dato, b,
-            complete);
-
-input       clk, ce, reset_n;
-
-output reg  bsync;
-output reg  bwtbt;
-output reg  bdin;
-output reg  bdout;
-output      bbsy;
-output      berror;
-input       breply;
-
-input       dati, dato;
-input       b;
-
-output      complete;
-
-parameter BUS_TIMEOUT = 63;
-
-parameter [4:0]
-                S_IDLE = 0,
-				S_R0 = 1,
-                S_R1 = 2,
-                S_W0 = 3,
-                S_W1 = 4,
-                S_FINISHED = 5,
-                S_BUSERROR= 6;
-
-reg [6:0] state;
-
-assign bbsy = bsync;
-
-assign berror = 0;
-
-reg [5:0] timeout;
-
-always @* bwtbt <= b;
-/*
-always @* begin
-    bsync <= dati|dato;
-    bdin <= dati;
-    bdout <= dato;
-end
-*/
-
-
-reg dati_r, dato_r;
-
-/*
-always @(posedge clk) begin
-	if (breply) begin
-		dati_r <= 0;
-		dato_r <= 0;
-	end else begin
-		dati_r <= dati;
-		dato_r <= dato;
-	end
-end
-
-always @* begin
-    bsync <= dati|dato|dati_r|dato_r;
-    bdin <= dati | dati_r;
-    bdout <= dato | dato_r;
-end
-*/
-
-always @* begin
-    bsync <= dati|dato;
-    bdin <= dati;
-    bdout <= dato;
-end
-
-/*
-always @* begin
-	if (~reset_n | ~(dati|dato)) begin
-		bsync <= 1'b0;
-		bdin <= 1'b0;
-		bdout <= 1'b0;
-	end else begin
-		case (1'b1) 
-		dati:	begin
-				bsync <= 1'b1;
-				bdin <= 1'b1;
-				bdout <= 1'b0;
-				end
-		dato:	begin
-				bsync <= 1'b1;
-				bdin <= 1'b0;
-				bdout <= 1'b1;
-				end
-		endcase
-	end
-end
-
-reg syncsamp;
-reg error;
-always @(posedge clk or negedge reset_n) begin
-	if (~reset_n) begin
-		error <= 1'b0;
-		timeout <= BUS_TIMEOUT;
-	end else if (ce) begin
-		syncsamp <= bsync;
-		
-		//if (~syncsamp & bsync) 	timeout <= BUS_TIMEOUT;
-		if (~bsync) 	timeout <= BUS_TIMEOUT;
-		if (bsync && timeout != 0) timeout <= timeout - 1'b 1;
-	end
-end
-*/
-
-/*
-always @(posedge clk or negedge reset_n) begin
-    if (!reset_n) begin
-		timeout <= 0;
-        state <= S_IDLE;
-    end 
-	else if (ce) begin
-		
-		if (timeout != 0) timeout <= timeout - 1'b 1;
-
-		case (state)
-			S_IDLE: 
-				begin
-					bsync <= 1'b0;
-					bdin <= 1'b0;
-					bdout <= 1'b0;
-					timeout <= BUS_TIMEOUT;
-					
-					if (dati) begin
-						state <= S_R1;
-						bsync <= 1'b1;
-						bdin  <= 1'b1;
-						bdout <= 1'b0;						
-					end 
-					else if (dato) 	begin
-						bsync <= 1'b1;
-						bdin  <= 1'b0;
-						bdout <= 1'b1;
-						state <= S_W1;
-					end 
-				end
-
-			S_R1: begin
-					if (breply) begin
-						state <= S_IDLE;
-						bsync <= 1'b0;
-						bdin <= 1'b0;
-						bdout <= 1'b0;
-					end
-					else if (timeout == 0) 	state <= S_BUSERROR;
-				end
-						
-			S_W1: begin
-					if (breply)	begin
-						state <= S_IDLE;
-						bsync <= 1'b0;
-						bdin <= 1'b0;
-						bdout <= 1'b0;
-					end
-					else if (timeout == 0) 	state <= S_BUSERROR;					
-				end
-				
-			S_BUSERROR:
-				begin
-					state <= S_IDLE;
-				end
-		endcase
-    end
-end
-*/
 endmodule
 

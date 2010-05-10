@@ -316,15 +316,15 @@ wire kbd_keydown;
 wire kbd_ar2;
 
  bkcore core (
-    .p_reset(CPU_reset), 
-    .m_clock(clk_cpu), 
+    .reset_n(~CPU_reset), 
+    .clk(clk_cpu), 
     .ce(ce_cpu),
     .cpu_rdy(cpu_rdy_final), 
     .wt(cpu_wt), 
     .rd(cpu_rd), 
     .reply_i(ram_reply),
-    .in(latched_ram_data), 
-    .out(cpu_out), 
+    .ram_data_i(latched_ram_data), 
+    .ram_data_o(cpu_out), 
     .adr(cpu_adr), 
     .byte(cpu_byte),
     .ifetch(ifetch),
@@ -544,68 +544,6 @@ kbd_intf kbd_intf (
 	.key_down(kbd_keydown),
 	.ar2(kbd_ar2),
     );
-
-
-
-
-/*
-wire char_rom_cs, char_rom_rw; 
-wire [10:0] char_rom_addr; 
-wire [7:0] char_rom_rdata; 
-wire [7:0] char_rom_wdata;
-wire [3:0] char_line;
-
-wire [6:0] char_code;
-
-wire [2:0] sel_bit;
-
-assign char_line = screen_y[3:0];
-assign  char_rom_rw = 1;
-assign  char_rom_cs = 1;
-assign   char_rom_wdata = 0;
-
-assign  sel_bit = ~screen_x[2:0];
-assign  char_code = screen_x[9:3]+ 'h30;
-assign  char_rom_addr = {char_code, char_line};
-assign  char_bit = char_rom_rdata[sel_bit];
-
-  char_rom char_rom (
-    .clk(clk25), 
-    .rst(reset_in), 
-    .cs(char_rom_cs), 
-    .rw(char_rom_rw), 
-    .addr(char_rom_addr), 
-    .rdata(char_rom_rdata), 
-    .wdata(char_rom_wdata)
-    );
-*/
-
-/*
-wire [7:0]read_cap;
-wire [2:0]cap_rd_sel;
-wire cap_rd;
-
-wire [3:0] capt_flags;
-wire cap_wr;
-assign cap_wr = ((cpu_rd | cpu_wt) & (seq[1:0] == 2'b01) & cpu_rdy);
-
-assign capt_flags = { cpu_byte, ifetch, cpu_rd , cpu_wt};
-
-   capture capture (
-    .res(reset_in), 
-    .clk25(clk25), 
-    .cap_addr(cpu_adr), 
-    .cap_dat(ram_a_data),
-    .flags(capt_flags), 
-    .cap_wr(cap_wr), 
-    .read_cap_l(read_cap), 
-    .cap_rd(cap_rd), 
-    .cap_rd_sel(cap_rd_sel)
-    );
-
-*/   
-   
-
 
   
 endmodule

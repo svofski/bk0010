@@ -241,8 +241,6 @@ set_global_assignment -name VERILOG_FILE vm1/src/myidc.v
 set_global_assignment -name VERILOG_FILE src/bk0010.v
 set_global_assignment -name VERILOG_FILE src/bkcore.v
 set_global_assignment -name VERILOG_FILE src/translate.v
-set_global_assignment -name VERILOG_FILE src/match.v
-set_global_assignment -name VERILOG_FILE src/misc.v
 set_global_assignment -name VERILOG_FILE src/kbd_intf.v
 set_global_assignment -name VERILOG_FILE src/ps2_kbd.v
 set_global_assignment -name VERILOG_FILE src/vga1.v

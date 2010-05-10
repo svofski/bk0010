@@ -168,7 +168,7 @@ wire			tape_in;
 
 I2C_AV_Config 		u7(clk25,~RST_IN,I2C_SCLK,I2C_SDAT);
 
-/*
+
 soundcodec soundnik(
 					.clk18(aud_clk), 
 					.pulses({tape_out, 3'b0}), 
@@ -182,7 +182,7 @@ soundcodec soundnik(
 					.iAUD_ADCDAT(AUD_ADCDAT), 
 					.oAUD_ADCLRCK(AUD_ADCLRCK)
 				   );
-*/
+
 assign GPIO_0[4] = tape_in;
 assign GPIO_0[0] = clkcpu;
 
