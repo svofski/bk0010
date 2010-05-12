@@ -32,6 +32,10 @@
 // Enable to pull out contents of all registers. Without this, SP display on DE1 won't work. 
 //`define WITH_RTEST
 
+// If unsure in bus cycles, this may help by automatically injecting waitstates until RPLY is down
+// see control11.v for details
+//`ifdef VM1_WAITSTATES
+
 module bk0010de1(
 		CLOCK_27, 
 		clk50mhz, 

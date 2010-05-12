@@ -96,8 +96,8 @@ always @*
 	case (testselect)
 	2'b00:	redleds <= test_control;
 	2'b01:	redleds <= test_bus;
-	2'b10:	;
-	2'b11:  ;
+	2'b10:	redleds <= 0;
+	2'b11:  redleds <= 0;
 	endcase
 
 wire [15:0] cpu_data_o;
@@ -135,50 +135,23 @@ vm1 cpu(.clk(clk),
 assign cpu_sp = cpu_registers[111:96];        	
 `endif 
 
-//
-// A medium quick bus cycle: CPU notices RPLY on 3rd clock/ce
-//
-// Clock 0+: CPU sets DATI,SYNC   commands datapath to set DBA to PC
-//           SYNC is 0, was 0
-// Clock 0-: DBA <= PC: Address bus becomes valid
-//                      ... 10ns async RAM sets data ...
-// Clock 1+: SYNC is 1, was 0 --> RPLY <= 1 
-// Clock 1-: Nothing of value happens
-//
-// Clock 2+: CPU sees RPLY == 1, DBI_R registers data, sets new datapath instructions, advances state
-// Clock 2-: Datapath sets opcode from DBI_R, etc
-// 	     
-// DBI has valid data from RAM on Clock 1+, but the time is wasted on formalities.
-//
-//   0   1   2
-//   _   _   _
-// _/ \_/ \_/ \
-// ___ __
-// ___X__valid addr
-//   ___
-// _/ dati/SYNC
-//    ___
-// __/   \___ ~syncsample & sync
-//        ____  
-// ______/ RPLY
-//
+
+//---------------------------------------------
+// RPLY generator for register space
+//---------------------------------------------
+
 reg     reg_reply;
 wire    cpu_io = _cpu_wt | _cpu_rd;
 
 always @* ram_data_o <= (_cpu_byte & _cpu_adrs[0])? {data_from_cpu[7:0], data_from_cpu[7:0]} : data_from_cpu;
 
 always @(posedge clk) begin
-//    if (ce) begin
-//        if (reg_space) begin
-//            reg_reply <= cpu_sync & ~reg_reply;
-//        end
-//    end
     if (reg_space & cpu_io & ~reg_reply)
         reg_reply <= 1;
     else
         if (ce) reg_reply <= 0;
 end
-//---------------------
+//---------------------------------------------
 
 
 assign roll_out = roll[7:0];

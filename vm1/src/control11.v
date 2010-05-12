@@ -92,12 +92,18 @@ parameter [5:0]    BOOT_0 = 0,
                 TRAP_3 = 51,  
                 TRAP_4 = 52,
                 TRAP_IRQ = 55,
-                TRAP_SVC = 56,
+                TRAP_SVC = 56
                 
-                WAIT = 60
+`ifdef VM1_WAITSTATES
+                ,WAIT = 60
+`endif
                 ;
 
-reg [5:0] state, next, next_postponed;
+reg [5:0] state, next;
+
+`ifdef VM1_WAITSTATES
+reg [5:0] next_postponed;
+`endif
 
 parameter SRC_OP = 1'b0,
           DST_OP = 1'b1;
@@ -120,9 +126,9 @@ assign     ifetch = state == FS_IF0;
 reg         rsub, rsub_r;       
 reg         mbyte_r;            // registered value of (comb) mbyte
 
+`ifdef VM1_WAITSTATES
+
 // stretched ready
-wire        ready_r = ready_i;
-/*
 reg         ready_r;
 always @(posedge clk or negedge reset_n)
     if (!reset_n) 
@@ -130,8 +136,13 @@ always @(posedge clk or negedge reset_n)
     else begin
         ready_r <= ready_i ? ready_i : ce ? ready_i : ready_r;
     end
-*/
 wire        ready = ready_r | ready_i;    
+
+`else
+
+wire        ready = ready_i;
+
+`endif
 
 reg        dato;
 reg        dato_r;
@@ -203,7 +214,9 @@ wire neverwait =
 // async reset is necessary if clock stops on reset too
 always @(posedge clk or negedge reset_n) begin
     if (!reset_n) begin
+`ifdef VM1_WAITSTATES
         next_postponed <= BOOT_0;
+`endif        
         state <= BOOT_0;
         datist_r <= 0;
         datost_r <= 0;
@@ -211,16 +224,20 @@ always @(posedge clk or negedge reset_n) begin
     else if (ce) begin
         //$display("^state=%d->%d ce=%b", state, next, ce);
         
+`ifdef VM1_WAITSTATES
         // if reply is high by the time of state switching, 
         // fall into the WAIT state, saving next.
         // when ready is released, continue using next_postponed.
         
-        //if (ready_i && ~waiting && state != next && ~neverwait) begin
-        //    next_postponed <= next;
-        //    state <= WAIT;
-        //end else begin
+        if (ready_i && ~waiting && state != next && ~neverwait) begin
+            next_postponed <= next;
+            state <= WAIT;
+        end else begin
+`endif        
             state <= next;
-        //end
+`ifdef VM1_WAITSTATES
+        end
+`endif        
         
         
         datist_r    <= datist;
@@ -233,27 +250,30 @@ end
 
 always @* begin
     begin
+
+`ifdef VM1_WAITSTATES
+        waiting = 1'b0;
+`endif        
         datost = 0;
         datist = 0;
         
         dpcmd = 128'b0;
         initq = 1'b0;
         iako = 1'b0;
-        waiting = 1'b0;
         
-        opsrcdst_to = opsrcdst_r; // don't allow opsrcdst to latch
-        
-        next = state;
-        
+        opsrcdst_to = opsrcdst_r;
         mbyte = mbyte_r;
         rsub  = rsub_r;
+
+        next = state;
         
         case (state)
+`ifdef VM1_WAITSTATES
         WAIT:   begin 
                     waiting = 1'b1;
                     if (~ready) next <= next_postponed;
                 end
-        
+`endif        
         BOOT_0: begin
                     `dp(`SETPCROM);
                     next = FS_IF0;

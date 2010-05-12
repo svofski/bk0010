@@ -339,6 +339,7 @@ wire kbd_ar2;
 `endif    
 
 
+// New RAM exchange cycle that takes place of the old SEQ
 
 reg ram_reply;
 
@@ -364,55 +365,6 @@ always @(posedge clk_cpu or posedge reset_in) begin: _ramcycle
     end
 end
 
-/*
-// SEQ is here
-reg [2:0] 		seq;
-reg             rdsamp;
-reg             wtsamp;
-always @(posedge clk_cpu) begin
-	if(reset_in) begin
-		clk_cpu_count <= 0;
-		seq <= 0;
-		{rdsamp,wtsamp} <= 0;
-	end
-	else begin
-		clk_cpu_count <= clk_cpu_count + 1;
-		rdsamp <= cpu_rd;
-		wtsamp <= cpu_wt;
-		seq <= {seq[1:0], (~rdsamp & cpu_rd) | (~wtsamp & cpu_wt) };
-	end
-end  
-
-assign cpu_oe_n = ~(cpu_rd & (seq[1:0] == 2'b01));
- 
-assign cpu_we_n = ~(cpu_wt & (seq[1:0] == 2'b01) ); 
-
-reg ram_reply;
-
-// negedge is faster because it saves a trailing clock in many CPU states,
-// but it wouldn't work if the core clock is 50MHz
-`ifdef CORE_25MHZ    
-always @(negedge clk_cpu) begin
-`else
-always @(posedge clk_cpu) begin
-`endif
-    if (reset_in) begin
-        ram_reply <= 1'b0;
-    end
-    else if(~cpu_oe_n) begin
-        latched_ram_data <= ram_a_data;
-        // generate reply for the cpu
-        ram_reply <= 1'b1;
-    end 
-    else if (~cpu_we_n) begin
-        ram_reply <= 1'b1;
-    end
-    else if (ram_reply && ~(cpu_rd|cpu_wt)) begin
-        // cycle ended, remove reply
-        ram_reply <= 1'b0;
-    end
-end
-*/
 
 always data_from_cpu <= cpu_out;
 
