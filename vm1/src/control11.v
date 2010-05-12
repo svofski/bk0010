@@ -121,6 +121,8 @@ reg         rsub, rsub_r;
 reg         mbyte_r;            // registered value of (comb) mbyte
 
 // stretched ready
+wire        ready_r = ready_i;
+/*
 reg         ready_r;
 always @(posedge clk or negedge reset_n)
     if (!reset_n) 
@@ -128,7 +130,7 @@ always @(posedge clk or negedge reset_n)
     else begin
         ready_r <= ready_i ? ready_i : ce ? ready_i : ready_r;
     end
-
+*/
 wire        ready = ready_r | ready_i;    
 
 reg        dato;
@@ -212,12 +214,13 @@ always @(posedge clk or negedge reset_n) begin
         // if reply is high by the time of state switching, 
         // fall into the WAIT state, saving next.
         // when ready is released, continue using next_postponed.
-        if (ready_i && ~waiting && state != next && ~neverwait) begin
-            next_postponed <= next;
-            state <= WAIT;
-        end else begin
+        
+        //if (ready_i && ~waiting && state != next && ~neverwait) begin
+        //    next_postponed <= next;
+        //    state <= WAIT;
+        //end else begin
             state <= next;
-        end
+        //end
         
         
         datist_r    <= datist;

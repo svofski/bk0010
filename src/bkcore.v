@@ -163,22 +163,20 @@ assign cpu_sp = cpu_registers[111:96];
 // ______/ RPLY
 //
 reg     reg_reply;
-wire    cpu_sync = _cpu_wt | _cpu_rd;
-
-reg     syncsample;
+wire    cpu_io = _cpu_wt | _cpu_rd;
 
 always @* ram_data_o <= (_cpu_byte & _cpu_adrs[0])? {data_from_cpu[7:0], data_from_cpu[7:0]} : data_from_cpu;
 
 always @(posedge clk) begin
-    if (ce) begin
-        syncsample <= cpu_sync;
-        if (cpu_sync & ~syncsample) begin
-            if (reg_space) reg_reply <= 1'b1;
-        end
-        else if (~cpu_sync & syncsample & reg_reply) begin
-            reg_reply <= 1'b0;
-        end
-    end
+//    if (ce) begin
+//        if (reg_space) begin
+//            reg_reply <= cpu_sync & ~reg_reply;
+//        end
+//    end
+    if (reg_space & cpu_io & ~reg_reply)
+        reg_reply <= 1;
+    else
+        if (ce) reg_reply <= 0;
 end
 //---------------------
 
@@ -234,7 +232,7 @@ always @(posedge clk or negedge reset_n) begin
 			else begin  // good access to reg space
 				bad_addr <= 0;
 
-				if( _cpu_wt) begin // all reg writes
+				if (_cpu_wt) begin // all reg writes
 					if( kbd_state_sel) 
 						kbd_int_flag <= data_from_cpu[6];
 					if(roll_sel)
@@ -245,7 +243,7 @@ always @(posedge clk or negedge reset_n) begin
 				    end
 				end
 				
-				if(_cpu_rd) begin
+				if (_cpu_rd) begin
 					if (initreg_sel) begin
 						stopkey_latch <= 1'b0;
 						initreg_access_latch <= 1'b0;
@@ -269,14 +267,14 @@ always @* begin: _databus_selector
 	case (1'b1) 
 	reg_space: 
         begin
-            if(kbd_data_sel) begin
+            if (kbd_data_sel) begin
                 databus_in = {8'b0000000, kbd_data};
             end
-            else if(kbd_state_sel) begin
+            else if (kbd_state_sel) begin
                 databus_in = {8'b0000000, kbd_available, kbd_int_flag,6'b000000};
-            end else if(initreg_sel  ) begin
+            end else if (initreg_sel) begin
                 databus_in = {init_reg_hi, 1'b1, ~keydown, tape_in, 1'b0, 1'b0, stopkey_latch|initreg_access_latch, 1'b0,1'b0};
-            end else if(roll_sel ) begin
+            end else if (roll_sel) begin
                 databus_in = roll;
             end else if (usr_sel) begin
                 databus_in = 16'o0;     // this could be a joystick...

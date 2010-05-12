@@ -144,8 +144,8 @@ wire 			clk_cpu;            // 25 MHz clock
 reg             ce_cpu;             // CPU clock enable 
 wire            ce_shifter_load;    // latch data into pixel shifter
 reg [4:0] 		clk_cpu_count;
-wire 			cpu_oe_n;           // 0= ram data output to cpu
-wire 			cpu_we_n;           // 0= cpu outputs data to ram
+reg             cpu_oe_n;           // 0= ram data output to cpu
+reg             cpu_we_n;           // 0= cpu outputs data to ram
 wire 			read_kbd;
 
 wire [7:0] 		roll;
@@ -339,6 +339,32 @@ wire kbd_ar2;
 `endif    
 
 
+
+reg ram_reply;
+
+always @(posedge clk_cpu or posedge reset_in) begin: _ramcycle
+    if (reset_in) begin
+        {cpu_oe_n,cpu_we_n} <= 2'b11;
+        ram_reply <= 0;
+    end else begin
+        if (ce_cpu) begin
+            ram_reply <= 0;
+            cpu_oe_n <= (~cpu_rd) | ram_reply | ~cpu_oe_n;  
+            cpu_we_n <= (~cpu_wt) | ram_reply | ~cpu_we_n;
+        end else begin
+            {cpu_oe_n,cpu_we_n} <= 2'b11;
+        end
+        
+        if (~cpu_oe_n) begin
+            latched_ram_data <= ram_a_data;
+            ram_reply <= 1;
+        end else if (~cpu_we_n) begin
+            ram_reply <= 1;
+        end 
+    end
+end
+
+/*
 // SEQ is here
 reg [2:0] 		seq;
 reg             rdsamp;
@@ -386,6 +412,7 @@ always @(posedge clk_cpu) begin
         ram_reply <= 1'b0;
     end
 end
+*/
 
 always data_from_cpu <= cpu_out;
 
