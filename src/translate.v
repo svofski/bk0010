@@ -33,18 +33,12 @@ assign shift_key_plus_code = {shift, incode};
 always @(shift_key_plus_code) begin
 	autoar2 <= 0;
 	case(shift_key_plus_code)
-	9'H066 : begin
-	  ascii <= 7'H08;
+	9'h066,
+	9'h166 : begin
 	  // Backspace ("backspace" key)
+	  ascii <= 7'o30; // was 'h8 but delete last char is 030
 	end
-	9'H166 : begin
-	  ascii <= 7'H08;
-	  // Backspace ("backspace" key)
-	end
-	9'H00d : begin
-	  ascii <= 7'H09;
-	  // Horizontal Tab
-	end
+	9'H00d,
 	9'H10d : begin
 	  ascii <= 7'H09;
 	  // Horizontal Tab
@@ -449,15 +443,16 @@ always @(shift_key_plus_code) begin
 	  ascii <= 7'H7e;
 	  // ~
 	end
-	9'H071 : begin
-	  ascii <= 7'H7f;
-	  // (Delete OR DEL on numeric keypad)
-	end
-	9'H171 : begin
-	  ascii <= 7'H7f;
-	  // (Delete OR DEL on numeric keypad)
-	end
 
+	
+	9'h06c, // BC/Home
+	9'h16c: ascii <= 7'o023; 
+	
+	9'H071, // (Delete OR DEL on numeric keypad)
+	9'H171: ascii <= 7'H7f;
+
+    9'h003,
+    9'h103, // F5 and 
 	9'H070,	// INS
 	9'H170	: ascii <= 7'o027;	// |=>
 
@@ -494,6 +489,47 @@ always @(shift_key_plus_code) begin
 				autoar2 <= 1;
 				ascii <= 7'o201;
 			end
+			
+    9'H006, // KT (F2) ?? unknown
+    9'H106  : ascii <= 7'o003; 
+    
+    
+    9'H004, // Kill EOL (F3)
+    9'H104  : 
+            begin
+                autoar2 <= 1;
+                ascii <= 7'o231;
+            end
+            
+    9'H00c, // del at cursor (F4)
+    9'H10c  : ascii <= 7'o26; 
+    
+    // F5 see INS
+    
+    // F6: IND SU
+    9'h00b,
+    9'h10b  : 
+            begin
+                ascii <= 7'o202;
+                autoar2 <= 1;
+            end
+            
+    // F7: BLK RED
+    9'h083,
+    9'h183  :
+            begin
+                ascii <= 7'o204;
+                autoar2 <= 1;
+            end
+            
+    // F8: SHAG
+    9'h00a,
+    9'h10a  :
+            begin
+                ascii <= 7'o220;
+                autoar2 <= 1;
+            end
+			
     9'H078:   ascii <= 7'o014;  // SBR (F11)
 	default : ascii <= 7'H00;	// 0x00 used for unlisted characters.
 	endcase
