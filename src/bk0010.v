@@ -179,8 +179,7 @@ always @*
     //6'b11xxxx:  ce_cpu <= |screen_x[3:0] && screen_x[3:0] != 4'b1111 && screen_x[3:0] != 4'b1110;
     6'b010101:  ce_cpu <= 1;
 `else
-                                                // vvv not sure about this!
-    6'b11xxxx:  ce_cpu <= screen_x[3:0] != 4'b1111 && screen_x[3:0] != 4'b1110; // @50MHz this leaves enough cycles for the last CPU access to complete, so no 1110
+    6'b11xxxx:  ce_cpu <= screen_x[3:0] != 4'b1111 && screen_x[3:0] != 0; 
     6'b010101:  ce_cpu <= cediv50;
 `endif    
     default:    ce_cpu <= 0;

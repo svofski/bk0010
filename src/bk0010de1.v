@@ -27,14 +27,14 @@
 
 // CORE_25MHZ for core and CPU clocked by 25MHz clock.
 // To enable 50MHz clock, comment this out and set optimization to Speed.
-//`define CORE_25MHZ 
+`define CORE_25MHZ 
 
 // Enable to pull out contents of all registers. Without this, SP display on DE1 won't work. 
 //`define WITH_RTEST
 
 // If unsure in bus cycles, this may help by automatically injecting waitstates until RPLY is down
 // see control11.v for details
-`define VM1_WAITSTATES
+//`define VM1_WAITSTATES
 
 module bk0010de1(
 		CLOCK_27, 

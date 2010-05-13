@@ -216,7 +216,7 @@ set_location_assignment PIN_C7 -to TCK
 set_location_assignment PIN_D7 -to TDO
 set_location_assignment PIN_D8 -to TCS
 set_location_assignment PIN_E8 -to TDI
-set_global_assignment -name CYCLONEII_OPTIMIZATION_TECHNIQUE SPEED
+set_global_assignment -name CYCLONEII_OPTIMIZATION_TECHNIQUE BALANCED
 set_global_assignment -name CYCLONEII_RESERVE_NCEO_AFTER_CONFIGURATION "USE AS REGULAR IO"
 set_global_assignment -name RESERVE_ASDO_AFTER_CONFIGURATION "AS INPUT TRI-STATED"
 
