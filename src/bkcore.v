@@ -66,18 +66,11 @@ wire    [7:0]   _cpu_pswout;
 wire            rom_space;
 wire            ram_space;
 wire            reg_space;
-wire            bad_reg;
-wire            kbd_state_sel;
-wire            kbd_data_sel;
-wire            roll_sel;
-wire            initreg_sel;
-wire            usr_sel;
-
 
 reg             bad_addr;
 
   
-reg             kbd_int_flag; // bit 6 - IRQ en
+reg             kbdint_enable_n; // bit 6 in 177660
 reg     [7:0]   init_reg_hi;
 reg     [15:0]  roll;
 
@@ -169,14 +162,25 @@ assign ram_space = ~_cpu_adrs[15];
 assign reg_space = _cpu_adrs[15:7] == 9'b111111111;
 assign rom_space = _cpu_adrs[15] & ~reg_space;
 
-assign kbd_state_sel = (_cpu_adrs[6:0] == 'o060);
-assign kbd_data_sel = (_cpu_adrs[6:0] == 'o062);
-assign roll_sel = (_cpu_adrs[6:0] == 'o064);
-assign initreg_sel = (_cpu_adrs[6:0] == 'o116);
-assign usr_sel = (_cpu_adrs[6:0] == 'o114);
-assign bad_reg = ~(kbd_state_sel | kbd_data_sel |roll_sel |initreg_sel | usr_sel );
+parameter 
+    KBD_STATE = 0,
+    KBD_DATA = 1,
+    ROLL = 2,
+    INITREG = 3,
+    USRREG = 4,
+    LASTREGSEL = 4;
+    
+wire        [LASTREGSEL:0] regsel;
 
-assign read_kbd = kbd_data_sel;
+assign regsel[KBD_STATE] = (_cpu_adrs[6:0] == 'o060);
+assign regsel[KBD_DATA]  = (_cpu_adrs[6:0] == 'o062);
+assign regsel[ROLL]      = (_cpu_adrs[6:0] == 'o064);
+assign regsel[INITREG]   = (_cpu_adrs[6:0] == 'o116);
+assign regsel[USRREG]    = (_cpu_adrs[6:0] == 'o114);
+
+wire   bad_reg = ~|regsel;
+
+assign read_kbd = regsel[KBD_DATA];
 assign _cpu_error = bad_addr | (ifetch & stopkey);
 
    
@@ -188,11 +192,11 @@ always @(negedge reset_n) begin
 	init_reg_hi  <= 8'b10000000; // CPU start address MSB, not used by POP-11
 end
 
-assign _cpu_irq_in = kbd_available & ~kbd_int_flag &(_Arbiter_cpu_pri == 0);
+assign _cpu_irq_in = kbd_available & ~kbdint_enable_n &(_Arbiter_cpu_pri == 0);
 
 always @(posedge clk or negedge reset_n) begin
 	if(~reset_n) begin
-	   kbd_int_flag <= 1'b0;
+	   kbdint_enable_n <= 1'b0;
 	   bad_addr <= 1'b0;
 	   roll <= 'o01330;
 	   initreg_access_latch <= 0;
@@ -206,18 +210,15 @@ always @(posedge clk or negedge reset_n) begin
 				bad_addr <= 0;
 
 				if (_cpu_wt) begin // all reg writes
-					if( kbd_state_sel) 
-						kbd_int_flag <= data_from_cpu[6];
-					if(roll_sel)
-						{roll[9],roll[7:0]} <= {data_from_cpu[9],data_from_cpu[7:0]};
-					if (initreg_sel) begin
-						tape_out <= data_from_cpu[6];
-						initreg_access_latch <= 1'b1;
-				    end
+                    case (1)
+                        regsel[KBD_STATE]:  kbdint_enable_n <= data_from_cpu[6];
+                        regsel[ROLL]:       {roll[9],roll[7:0]} <= {data_from_cpu[9],data_from_cpu[7:0]};
+                        regsel[INITREG]:    {tape_out,initreg_access_latch} <= {data_from_cpu[6], 1'b1};
+					endcase
 				end
 				
 				if (_cpu_rd) begin
-					if (initreg_sel) begin
+					if (regsel[INITREG]) begin
 						stopkey_latch <= 1'b0;
 						initreg_access_latch <= 1'b0;
 					end
@@ -239,20 +240,13 @@ always @* begin: _databus_selector
 
 	case (1'b1) 
 	reg_space: 
-        begin
-            if (kbd_data_sel) begin
-                databus_in = {8'b0000000, kbd_data};
-            end
-            else if (kbd_state_sel) begin
-                databus_in = {8'b0000000, kbd_available, kbd_int_flag,6'b000000};
-            end else if (initreg_sel) begin
-                databus_in = {init_reg_hi, 1'b1, ~keydown, tape_in, 1'b0, 1'b0, stopkey_latch|initreg_access_latch, 1'b0,1'b0};
-            end else if (roll_sel) begin
-                databus_in = roll;
-            end else if (usr_sel) begin
-                databus_in = 16'o0;     // this could be a joystick...
-            end
-		end	 //reg space
+        case (1)
+        regsel[KBD_DATA]:   databus_in = {8'b0000000, kbd_data};
+        regsel[KBD_STATE]:  databus_in = {8'b0000000, kbd_available, kbdint_enable_n, 6'b000000};
+        regsel[INITREG]:    databus_in = {init_reg_hi, 1'b1, ~keydown, tape_in, 1'b0, 1'b0, stopkey_latch|initreg_access_latch, 1'b0,1'b0};
+        regsel[ROLL]:       databus_in = roll;
+        regsel[USRREG]:     databus_in = 16'o0;     // this could be a joystick...
+        endcase
 		
     ~reg_space:
         begin
