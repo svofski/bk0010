@@ -483,8 +483,10 @@ always @(shift_key_plus_code) begin
 	9'H07A,
 	9'H17A	: ascii <= 7'o036;	// arrow down-right
 
-	9'H058	: ascii <= 7'o017;	// LAT (CapsLock)
-	9'H158	: ascii <= 7'o016;	// RUS (Shift+CapsLock)
+	9'h158,
+	9'h058  : ascii <= 7'o016;  // RUS (CapsLock)
+	9'h159,
+	9'h059  : ascii <= 7'o017;  // LAT (RShift)
 
 	9'H005,	// POVT! (F1)
 	9'H105	: 
