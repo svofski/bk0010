@@ -229,10 +229,10 @@ vm1 cpu
            .WTBT(cpu_byte),        // o: byteio op/odd address
            .BSY(cpu_bsy),         // o: CPU usurps bus
            .INIT(cpu_init),        // o: peripheral INIT
-		   .IFETCH(cpu_ifetch),		// o: indicates IF0
-		   .VIRQ(txirq),
-		   .IAKO(iako),
-		   .error_i(buserr)
+           .IFETCH(cpu_ifetch),     // o: indicates IF0
+           .VIRQ(txirq),
+           .IAKO(iako),
+           .error_i(buserr)
            );
 
 

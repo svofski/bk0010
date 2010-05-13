@@ -14,15 +14,15 @@
 // (c) ALSE. http://www.alse-fr.com
 
 module PS2_Ctrl(
-				Clk,
-				Reset,
-				PS2_Clk,
-				PS2_Data,
-				DoRead,
-				Scan_Err,
-				Scan_DAV,
-				Scan_Code
-				);
+                Clk,
+                Reset,
+                PS2_Clk,
+                PS2_Data,
+                DoRead,
+                Scan_Err,
+                Scan_DAV,
+                Scan_Code
+                );
 
 input Clk;
 // System Clock
