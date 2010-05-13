@@ -23,7 +23,10 @@ wire 		[8:0] 	shift_key_plus_code;
 assign outcode = ascii;
 assign shift_key_plus_code = {shift, incode};
 
-	
+// 
+// A decent scancode table can be found here
+// http://www.computer-engineering.org/ps2keyboard/scancodes2.html
+//	
 
 // This part translates the scan code into an ASCII value...
 // Only the ASCII codes which I considered important have been included.
