@@ -36,6 +36,12 @@ module bkcore(
         output              full_screen_o,  // o: 1 == full screen, 0 == extended RAM mode
         input               tape_in,        // i: tape in bit
         output reg          tape_out,       // o: tape out/sound bit
+        
+        output              spi_wren,
+        input               spi_dsr,
+        output reg    [7:0] spi_do,
+        input         [7:0] spi_di,
+        
 
         // scary stuff
         input        [1:0]  testselect,
@@ -194,6 +200,8 @@ end
 
 assign _cpu_irq_in = kbd_available & ~kbdint_enable_n &(_Arbiter_cpu_pri == 0);
 
+assign spi_wren = ce & _cpu_wt & reg_space & regsel[USRREG];
+
 always @(posedge clk or negedge reset_n) begin
     if(~reset_n) begin
        kbdint_enable_n <= 1'b0;
@@ -214,6 +222,7 @@ always @(posedge clk or negedge reset_n) begin
                         regsel[KBD_STATE]:  kbdint_enable_n <= data_from_cpu[6];
                         regsel[ROLL]:       {roll[9],roll[7:0]} <= {data_from_cpu[9],data_from_cpu[7:0]};
                         regsel[INITREG]:    {tape_out,initreg_access_latch} <= {data_from_cpu[6], 1'b1};
+                        regsel[USRREG]:     spi_do <= data_from_cpu[7:0];
                     endcase
                 end
                 
@@ -245,7 +254,7 @@ always @* begin: _databus_selector
             regsel[KBD_STATE]:  databus_in = {8'b0000000, kbd_available, kbdint_enable_n, 6'b000000};
             regsel[INITREG]:    databus_in = {init_reg_hi, 1'b1, ~keydown, tape_in, 1'b0, 1'b0, stopkey_latch|initreg_access_latch, 1'b0,1'b0};
             regsel[ROLL]:       databus_in = roll;
-            regsel[USRREG]:     databus_in = 16'o0;     // this could be a joystick...
+            regsel[USRREG]:     databus_in = {~spi_dsr, spi_di}; //16'o0;     // this could be a joystick...
         endcase
         
     ~reg_space:

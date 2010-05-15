@@ -104,7 +104,7 @@ wire [7:0]      led_from_usb;
 wire            cpu_lb, cpu_ub;
 
 
-wire [15:0]     cpu_out;
+wire [15:0]     data_from_cpu;
 wire            cpu_byte;
 wire            enable_bpts;        // 1 == hw breakpoints are enabled
 wire            cpu_pause_n;        // switch-controlled CPU pause (SW7)
@@ -119,7 +119,6 @@ wire [7:0]      roll;
 wire            full_screen;
 
 reg [15:0]      latched_ram_data;
-reg [15:0]      data_from_cpu;
 
 
 assign      enable_bpts = switch[6];
@@ -277,7 +276,7 @@ wire kbd_ar2;
     .rd(cpu_rd), 
     .reply_i(ram_reply),
     .ram_data_i(latched_ram_data), 
-    .ram_data_o(cpu_out), 
+    .ram_data_o(data_from_cpu), 
     .adr(cpu_adr), 
     .byte(cpu_byte),
     .ifetch(ifetch),
@@ -294,6 +293,12 @@ wire kbd_ar2;
     .tape_in(tape_in),
     .redleds(redleds),
     .testselect(switch[3:2]),
+    
+    .spi_wren(spi_wren),
+    .spi_dsr(spi_dsr),
+    .spi_do(spi_to_spi),
+    .spi_di(spi_from_spi),
+    
 `ifdef WITH_RTEST   
     .cpu_sp(cpu_sp),
     .cpu_registers(cpu_registers)
@@ -332,8 +337,6 @@ always @(posedge clk_cpu or posedge reset_in) begin: _ramcycle
     end
 end
 
-
-always data_from_cpu <= cpu_out;
 
 `ifdef WITH_DE1_JTAG
 
@@ -442,6 +445,26 @@ kbd_intf kbd_intf (
     .key_down(kbd_keydown),
     .ar2(kbd_ar2),
     );
+    
+    
+// SPI interface
+
+wire        spi_wren;
+wire        spi_dsr;
+wire [7:0]  spi_to_spi;
+wire [7:0]  spi_from_spi;
+
+spi spi1(
+    .clk(clk25),
+    .ce(1),
+    .reset_n(~reset_in),
+    .mosi(SD_CMD),
+    .miso(SD_DAT),
+    .sck(SD_CLK),
+    .di(spi_to_spi),
+    .do(spi_from_spi),
+    .wr(spi_wren),
+    .dsr(spi_dsr));
 
   
 endmodule
