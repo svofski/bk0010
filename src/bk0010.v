@@ -16,83 +16,53 @@
 //  KEY[2] skips past current location (sometimes)
 
 module bk0010(
-        clk50,
-        clk25,
-        reset_in,
-        hypercharge_i,
-        PS2_Clk, PS2_Data,
-        button0,
-        pdb,
-        astb,
-        dstb,
-        pwr,
-        pwait,
-        iTCK,
-        oTDO,
-        iTDI,
-        iTCS,
-        greenleds,
-        switch,
-        ram_addr,
-        ram_a_data,
-        ram_a_ce,
-        ram_a_lb,
-        ram_a_ub,
-        ram_we_n,
-        ram_oe_n,
-        RED,GREEN,BLUE,vs,hs,
-        tape_out,
-        tape_in,
-        cpu_rd,
-        cpu_wt,
-        cpu_oe_n,
-        ifetch,
-        cpu_adr,
-        redleds,
-        cpu_opcode, cpu_sp,
-        ram_out_data
+    input           clk50,
+    input           clk25,
+    input           reset_in,
+    input           hypercharge_i,
+    input           PS2_Clk, 
+    input           PS2_Data,
+    input           button0,
+
+    input           iTCK,
+    output          oTDO,
+    input           iTDI,
+    input           iTCS,
+
+    input           SD_DAT,                         //  SD Card Data
+    output          SD_DAT3,                        //  SD Card Data 3
+    output          SD_CMD,                         //  SD Card Command Signal
+    output          SD_CLK,                         //  SD Card Clock
+        
+    output    [7:0] greenleds,
+    input     [7:0] switch,
+    output   [17:0] ram_addr,
+    inout    [15:0] ram_a_data,
+    output          ram_a_ce,
+    output          ram_a_lb,
+    output          ram_a_ub,
+    output          ram_we_n,
+    output          ram_oe_n,
+        
+    output reg      VGA_RED,
+    output reg      VGA_GREEN,
+    output reg      VGA_BLUE,
+    output          VGA_VS,
+    output          VGA_HS,
+            
+    output          tape_out,
+    input           tape_in,
+    output          cpu_rd,
+    output          cpu_wt,
+    output reg      cpu_oe_n,
+    output          ifetch,
+    output   [15:0] cpu_adr,
+    output    [7:0] redleds,
+    output   [15:0] cpu_opcode,
+    output   [15:0] cpu_sp,
+    output   [15:0] ram_out_data
     );
 
-input               clk50, clk25;
-input               button0;
-input               PS2_Clk, PS2_Data;
-
-inout   [7:0]       pdb;
-input               astb;
-input               dstb;
-input               pwr;
-output              pwait;
-input               iTCK, iTDI, iTCS;
-output              oTDO;
-
-output              cpu_rd,cpu_wt,cpu_oe_n;
-output  [7:0]       greenleds;
-output              ifetch;
-output  [15:0]      cpu_adr;
-input   [7:0]       switch;
-
-output  [17:0]      ram_addr;
-inout   [15:0]      ram_a_data;
-output              ram_a_ce;
-output              ram_a_lb;
-output              ram_a_ub;
-output              ram_we_n;
-output              ram_oe_n;
-
-output              tape_out;
-input               tape_in;
-
-input               reset_in;
-
-input               hypercharge_i;
-
-output  reg         RED,GREEN,BLUE;
-output              vs,hs;
-
-output  [7:0]       redleds;
-output  [15:0]      cpu_opcode, cpu_sp;
-
-output  [15:0]      ram_out_data;
 
 wire            kbd_data_wr;
 wire            video_access;
@@ -135,8 +105,6 @@ wire            cpu_lb, cpu_ub;
 
 
 wire [15:0]     cpu_out;
-wire            cpu_wt;
-wire            cpu_rd;
 wire            cpu_byte;
 wire            enable_bpts;        // 1 == hw breakpoints are enabled
 wire            cpu_pause_n;        // switch-controlled CPU pause (SW7)
@@ -144,7 +112,6 @@ wire            clk_cpu;            // 25 MHz clock
 reg             ce_cpu;             // CPU clock enable 
 wire            ce_shifter_load;    // latch data into pixel shifter
 reg [4:0]       clk_cpu_count;
-reg             cpu_oe_n;           // 0= ram data output to cpu
 reg             cpu_we_n;           // 0= cpu outputs data to ram
 wire            read_kbd;
 
@@ -368,30 +335,6 @@ end
 
 always data_from_cpu <= cpu_out;
 
-`ifdef WITH_USB
-usbintf usb_intf (
-    .mclk(usb_clk[1]), 
-    .reset_in(reset_in), 
-    .pdb(pdb), 
-    .astb(astb), 
-    .dstb(dstb), 
-    .pwr(pwr), 
-    .pwait(pwait), 
-    .led(led_from_usb), 
-    .switch(read_cap),  // use this input for captured data
-    .ram_addr(usb_addr), 
-    .usb_ouT_data(usb_a_data),
-    .in_ramdata(data_to_interface), 
-    .ram_a_lb(usb_a_lb), 
-    .ram_a_ub(usb_a_ub), 
-    .ram_we(usb_we_n), 
-    .ram_oe(usb_oe_n),
-    .cap_rd(cap_rd), 
-    .cap_rd_sel(cap_rd_sel),
-    .match_val_u(match_val_u),
-    .match_mask_u (match_mask_u)
- );
-`endif
 `ifdef WITH_DE1_JTAG
 
 wire        jtag_hold;
@@ -424,7 +367,7 @@ assign usb_oe_n = 1;
 `endif
    
 sync_gen25 syncgen( .clk(clk25), .res(reset_in), .CounterX(screen_x), .CounterY(screen_y), 
-           .Valid(valid), .vga_h_sync(hs), .vga_v_sync(vs));
+           .Valid(valid), .vga_h_sync(VGA_HS), .vga_v_sync(VGA_VS));
 
 shifter shifter(.clk25(clk25),.color(color),.R(R),.G(G),.B(B),
        .valid(valid),.data(ram_a_data),.x(screen_x),.load_i(ce_shifter_load));
@@ -439,7 +382,7 @@ assign ram_addr =
     ce_shifter_load ? {5'b00001, vga_addr} :
     {1'b0, cpu_adr[15:1]};
 
-wire [15:0] ram_out_data = ~cpu_we_n ? data_from_cpu: ~usb_we_n ? usb_a_data : 16'h ffff;
+assign ram_out_data = ~cpu_we_n ? data_from_cpu: ~usb_we_n ? usb_a_data : 16'h ffff;
 
 
     
@@ -474,29 +417,12 @@ always @(posedge clk25) begin
 end
    
 
-wire show_char_line =  0;//((screen_y[9:4] == 6'b 100001) & ~screen_x[9]); // line after the valid screen
-wire char_bit;
-
 wire valid_full = valid && (full_screen || ~|screen_y[8:7]);
 
 always @(posedge clk25) begin
-if (valid_full) begin
-        RED = R;
-        GREEN = G;
-        BLUE    =B;
-end  
-else    begin
-  if(show_char_line) begin
-        RED = char_bit;
-        GREEN = char_bit;
-        BLUE    = char_bit;
-    end
-    else     begin
-        RED = 0;
-        GREEN = 0;
-        BLUE    =0;
-    end
-end
+    VGA_RED   = valid_full ? R : 0;
+    VGA_GREEN = valid_full ? G : 0;
+    VGA_BLUE  = valid_full ? B : 0;
 end
 
 
