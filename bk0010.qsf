@@ -232,6 +232,9 @@ set_global_assignment -name LL_ROOT_REGION ON -section_id "Root Region"
 set_global_assignment -name LL_MEMBER_STATE LOCKED -section_id "Root Region"
 set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
 set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
+set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT -section_id Top
+set_global_assignment -name ENABLE_SIGNALTAP OFF
+set_global_assignment -name USE_SIGNALTAP_FILE stp1.stp
 set_global_assignment -name VERILOG_FILE src/bk0010de1.v
 set_global_assignment -name VERILOG_FILE vm1/src/vm1.v
 set_global_assignment -name VERILOG_FILE vm1/src/control11.v
@@ -240,6 +243,7 @@ set_global_assignment -name VERILOG_FILE vm1/src/myalu.v
 set_global_assignment -name VERILOG_FILE vm1/src/myidc.v
 set_global_assignment -name VERILOG_FILE src/bk0010.v
 set_global_assignment -name VERILOG_FILE src/bkcore.v
+set_global_assignment -name VERILOG_FILE src/sdcard/spi.v
 set_global_assignment -name VERILOG_FILE src/translate.v
 set_global_assignment -name VERILOG_FILE src/kbd_intf.v
 set_global_assignment -name VERILOG_FILE src/ps2_kbd.v
@@ -254,7 +258,4 @@ set_global_assignment -name VERILOG_FILE src/de1/sound/soundcodec.v
 set_global_assignment -name VERILOG_FILE src/de1/clock/altplla.v
 set_global_assignment -name VERILOG_FILE src/de1/clock/CLK_LOCK.v
 set_global_assignment -name VERILOG_FILE src/de1/hex/SEG7_LUT.v
-set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT -section_id Top
 set_global_assignment -name SIGNALTAP_FILE stp1.stp
-set_global_assignment -name ENABLE_SIGNALTAP OFF
-set_global_assignment -name USE_SIGNALTAP_FILE stp1.stp
