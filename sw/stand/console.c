@@ -77,3 +77,14 @@ printhex (val)
 	val = rol4 (val);
 	phexdigit (val);
 }
+
+void
+phex8(val)
+{
+	val = rol4 (val);
+	val = rol4 (val);
+	val = rol4 (val);
+	phexdigit (val);
+	val = rol4 (val);
+	phexdigit (val);
+}
