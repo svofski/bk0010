@@ -25,7 +25,7 @@ input 		ce;
 input		reset_n;
 output	reg	mosi;
 input		miso;
-output		sck = ~clk & scken;
+output		sck = ~clk & ce & scken;
 
 input [7:0]	di;
 input		wr;
@@ -38,6 +38,8 @@ reg [7:0]	shiftski;
 
 reg [1:0]	state = 0;
 reg 		scken = 0;
+
+reg         wrsamp;
 
 always @(posedge clk or negedge reset_n) begin
 	if (!reset_n) begin
@@ -70,7 +72,7 @@ always @(posedge clk or negedge reset_n) begin
 			2:	begin
 					mosi <= 1'b0; // shouldn't be necessary but a nice debug view
 					dsr <= 1'b1;
-					state <= 0;
+					if (!wr) state <= 0;
 					//scken <= 0;
 				end
 			default: ;

@@ -37,7 +37,7 @@ module bkcore(
         input               tape_in,        // i: tape in bit
         output reg          tape_out,       // o: tape out/sound bit
         
-        output              spi_wren,
+        output reg          spi_wren,
         input               spi_dsr,
         output reg    [7:0] spi_do,
         input         [7:0] spi_di,
@@ -200,7 +200,7 @@ end
 
 assign _cpu_irq_in = kbd_available & ~kbdint_enable_n &(_Arbiter_cpu_pri == 0);
 
-assign spi_wren = ce & _cpu_wt & reg_space & regsel[USRREG];
+//assign spi_wren = ce & _cpu_wt & reg_space & regsel[USRREG];
 
 always @(posedge clk or negedge reset_n) begin
     if(~reset_n) begin
@@ -209,37 +209,40 @@ always @(posedge clk or negedge reset_n) begin
        roll <= 'o01330;
        initreg_access_latch <= 0;
     end
-    else if (ce) begin
-        if (stopkey) stopkey_latch <= 1'b1;
-        if (reg_space) begin
-            if(bad_reg)
-                bad_addr <= 1;
-            else begin  // good access to reg space
-                bad_addr <= 0;
+    else begin
+        if (ce) begin
+            spi_wren <= 1'b0;
+            if (stopkey) stopkey_latch <= 1'b1;
+            if (reg_space) begin
+                if(bad_reg)
+                    bad_addr <= 1;
+                else begin  // good access to reg space
+                    bad_addr <= 0;
 
-                if (_cpu_wt) begin // all reg writes
-                    case (1)
-                        regsel[KBD_STATE]:  kbdint_enable_n <= data_from_cpu[6];
-                        regsel[ROLL]:       {roll[9],roll[7:0]} <= {data_from_cpu[9],data_from_cpu[7:0]};
-                        regsel[INITREG]:    {tape_out,initreg_access_latch} <= {data_from_cpu[6], 1'b1};
-                        regsel[USRREG]:     spi_do <= data_from_cpu[7:0];
-                    endcase
-                end
-                
-                if (_cpu_rd) begin
-                    if (regsel[INITREG]) begin
-                        stopkey_latch <= 1'b0;
-                        initreg_access_latch <= 1'b0;
+                    if (_cpu_wt) begin // all reg writes
+                        case (1)
+                            regsel[KBD_STATE]:  kbdint_enable_n <= data_from_cpu[6];
+                            regsel[ROLL]:       {roll[9],roll[7:0]} <= {data_from_cpu[9],data_from_cpu[7:0]};
+                            regsel[INITREG]:    {tape_out,initreg_access_latch} <= {data_from_cpu[6], 1'b1};
+                            regsel[USRREG]:     {spi_wren,spi_do} <= {1'b1,data_from_cpu[7:0]};
+                        endcase
                     end
-                end // rd
-            end // good access to reg space
-        end  //reg space
-        else if (rom_space & _cpu_wt)
-            bad_addr = 1;
-        else if (_cpu_rd & ~reg_space) begin
-            bad_addr = 0;
-        end else begin
-            bad_addr = 0; // don't hold error
+                    
+                    if (_cpu_rd) begin
+                        if (regsel[INITREG]) begin
+                            stopkey_latch <= 1'b0;
+                            initreg_access_latch <= 1'b0;
+                        end
+                    end // rd
+                end // good access to reg space
+            end  //reg space
+            else if (rom_space & _cpu_wt)
+                bad_addr = 1;
+            else if (_cpu_rd & ~reg_space) begin
+                bad_addr = 0;
+            end else begin
+                bad_addr = 0; // don't hold error
+            end
         end
     end
 end
