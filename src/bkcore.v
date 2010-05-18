@@ -41,6 +41,7 @@ module bkcore(
         input               spi_dsr,
         output reg    [7:0] spi_do,
         input         [7:0] spi_di,
+        output reg          spi_cs_n,
         
 
         // scary stuff
@@ -208,6 +209,7 @@ always @(posedge clk or negedge reset_n) begin
        bad_addr <= 1'b0;
        roll <= 'o01330;
        initreg_access_latch <= 0;
+       spi_cs_n <= 1'b1;
     end
     else begin
         if (ce) begin
@@ -223,7 +225,7 @@ always @(posedge clk or negedge reset_n) begin
                         case (1)
                             regsel[KBD_STATE]:  kbdint_enable_n <= data_from_cpu[6];
                             regsel[ROLL]:       {roll[9],roll[7:0]} <= {data_from_cpu[9],data_from_cpu[7:0]};
-                            regsel[INITREG]:    {tape_out,initreg_access_latch} <= {data_from_cpu[6], 1'b1};
+                            regsel[INITREG]:    {tape_out,initreg_access_latch,spi_cs_n} <= {data_from_cpu[6], 1'b1,data_from_cpu[0]};
                             regsel[USRREG]:     {spi_wren,spi_do} <= {1'b1,data_from_cpu[7:0]};
                         endcase
                     end

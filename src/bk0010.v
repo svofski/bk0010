@@ -298,6 +298,7 @@ wire kbd_ar2;
     .spi_dsr(spi_dsr),
     .spi_do(spi_to_spi),
     .spi_di(spi_from_spi),
+    .spi_cs_n(SD_DAT3),
     
 `ifdef WITH_RTEST   
     .cpu_sp(cpu_sp),
