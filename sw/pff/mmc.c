@@ -8,6 +8,8 @@
 
 #include "diskio.h"
 
+#define SPI_REG     0177714
+#define SYS_REG     0177716
 
 /* Definitions for MMC/SDC command */
 #define CMD0	(0x40+0)	/* GO_IDLE_STATE */
@@ -35,12 +37,18 @@ BYTE xmit_spi PARAMS((BYTE));	    /* Send a byte */
 #define	INIT_SPI()	{ USICR = 0b00011000; }		/* Initialize SPI port */
 #endif
 
-static int dummy;
+#if 1
+#define SELECT()      asm("bic $1, *$0177716")
+#define DESELECT()    asm("bis $1, *$0177716")
+#endif
 
-#define SELECT()      dummy = 1 
-#define DESELECT()    dummy = 0
+#if 0
+#define SELECT()      {}
+#define DESELECT()    {}
+#endif
+
 #define MMC_SEL       1
-#define INIT_SPI()    dummy = 0
+#define INIT_SPI()    {}
 
 /*--------------------------------------------------------------------------
 

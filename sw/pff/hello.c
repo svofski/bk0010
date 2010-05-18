@@ -8,18 +8,25 @@ FILINFO fno;
 
 void xmit() {}
 
+static char buf[128];
+
+static char fname[] = "BK0010/XXXXXXXX.XXX";
+
 int main ()
 {
-    int x;
+    int x, n, i;
     unsigned int* spi = (unsigned int *)0177714;
 
-	puts ("Hello, World\n");
-    puts("SD ");
-    puts(pf_mount(&fatfs) == FR_OK ?
-         "mounted\n" : "fail\n");
+	puts ("hello.jpg\n");
+    do {
+        puts("SD ");
+        x = pf_mount(&fatfs);
+        puts(x == FR_OK ? "mounted\n" : "fail\n");
+    } while (x != FR_OK);
 
-    puts("/ ");
-    puts(pf_opndir(&dir, "VECTOR06") == FR_OK ?
+
+    puts("Opening BK0010/ ");
+    puts(pf_opndir(&dir, "BK0010") == FR_OK ?
         "opened\n" : "fail\n");
 
     /*return 0;*/
@@ -28,7 +35,21 @@ int main ()
         if (pf_rddir(&dir,&fno) == FR_OK) {
             if (!fno.fname[0]) break;
             puts(fno.fname);
-            if (fno.fattrib & AM_DIR) puts("/");
+            if (fno.fattrib & AM_DIR) {
+                puts("/");
+            } else {
+                for(i=0;fname[i+7]=fno.fname[i];i++);
+                puts("\nTrying to open: "); puts(fname); puts(" size=0x"); printq(fno.fsize,1);
+                if (pf_open(fname) == FR_OK) {
+                    for(;pf_read(buf, sizeof(buf), &n) == FR_OK;) {
+                        /*putchar('[');printhex(n);putchar(']');*/
+                        for (i = 0; i < n; i++) { putchar(buf[i]); }
+                        if (n < sizeof(buf)) break;
+                    }
+                } else {
+                    puts(" - couldn't open");
+                }
+            }
             puts("\n"); 
         }
     }

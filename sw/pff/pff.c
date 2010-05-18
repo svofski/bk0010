@@ -85,6 +85,7 @@ CLUST clst;
 	WORD wc, bc, ofs;
 	BYTE buf[4];
 	FATFS *fs = FatFs;
+    WORD c1, c2;
 
 
 	if (clst < 2 || clst >= fs->max_clust)	/* Range check */
@@ -104,7 +105,9 @@ CLUST clst;
 		return (clst & 1) ? (wc >> 4) : (wc & 0xFFF);
 
 	case FS_FAT16 :
-		if (disk_readp(buf, (DWORD)fs->fatbase + clst / 256, (WORD)(((WORD)clst % 256) * 2), 2)) break;
+        c1 = clst >> 8;
+        c2 = (clst & 0xff) << 1;
+		if (disk_readp(buf, (DWORD)(fs->fatbase + ((DWORD)c1)), c2, 2)) break;
 		return LD_WORD(buf);
 #if _FS_FAT32
 	case FS_FAT32 :
@@ -122,23 +125,6 @@ CLUST clst;
 /*-----------------------------------------------------------------------*/
 /* Get sector# from cluster#                                             */
 /*-----------------------------------------------------------------------*/
-
-static
-DWORD clust2sect (	/* !=0: Sector number, 0: Failed - invalid cluster# */
-	clst		/* Cluster# to be converted */
-)
-CLUST clst;
-{
-	FATFS *fs = FatFs;
-
-
-	clst -= 2;
-	if (clst >= (fs->max_clust - 2)) return 0;		/* Invalid cluster# */
-    puts("c2s: clst=");printhex(clst);putchar('-');printhex(fs->csize);putchar('-');printq(fs->database,0);putchar('=');
-    printq((DWORD)((DWORD)clst) * ((DWORD)fs->csize) + fs->database);
-	return (DWORD)((DWORD)clst) * ((DWORD)fs->csize) + fs->database;
-}
-
 static void getsect(clst, sect)
 CLUST clst;
 DWORD* sect;
@@ -179,23 +165,13 @@ DIR* dj;
 		clst = fs->dirbase;
 #endif
 	dj->clust = clst;						/* Current cluster */
-#if SANE_COMPILER
-	dj->sect = clst ? clust2sect(clst) : fs->dirbase;	/* Current sector */
-#else
-    puts("rew sect=");
+
+
     if (clst != 0L) {
         getsect(clst, (DWORD*) &dj->sect);
-        printq(dj->sect,1); putchar('@');
     } else {
         dj->sect = fs->dirbase;
-        printq(dj->sect,1); putchar('#');
     }
-#endif
-
-#ifdef INSANELYVERBOSE
-    puts(" clst=");printq((DWORD)clst,0); puts(" dirbase="); printq((DWORD)fs->dirbase,0);
-    puts(" dj->sect=");printq((DWORD)dj->sect,0);
-#endif
 
 	return FR_OK;	/* Seek succeeded */
 }
@@ -236,7 +212,7 @@ DIR* dj;
 				if (clst >= fs->max_clust)		/* When it reached end of dynamic table */
 					return FR_NO_FILE;			/* Report EOT */
 				dj->clust = clst;				/* Initialize data for new cluster */
-				dj->sect = clust2sect(clst);
+                getsect(clst, (DWORD*)&dj->sect);
 			}
 		}
 	}
@@ -261,8 +237,6 @@ DIR* dj;
 	FRESULT res;
 	BYTE c, *dir;
 
-    puts("dir_find: "); puts(dj->fn);
-
 	res = dir_rewind(dj);			/* Rewind directory object */
 	if (res != FR_OK) return res;
 
@@ -277,12 +251,6 @@ DIR* dj;
 			break;
 		res = dir_next(dj);							/* Next entry */
 	} while (res == FR_OK);
-
-    if (res == FR_OK) {
-        puts("found");
-    } else {
-        puts("not found");
-    }
 
 	return res;
 }
@@ -303,16 +271,9 @@ DIR* dj;
 	FRESULT res;
 	BYTE a, c, *dir;
 
-#ifdef INSANELYVERBOSE
-    puts("dirread:");
-#endif
-
 	res = FR_NO_FILE;
 	dir = FatFs->buf;
 	while (dj->sect != 0L) {
-#ifdef INSANELYVERBOSE
-        printhex(dj->index); puts("o be:"); printhex((WORD)((dj->index % 16) * 32)); putchar('-');
-#endif
 		res = disk_readp(dir, (DWORD)dj->sect, (WORD)((dj->index % 16) * 32), 32)	/* Read an entry */
 			? FR_DISK_ERR : FR_OK;
 		if (res != FR_OK) break;
@@ -467,13 +428,9 @@ const char *path;
 					res = FR_NO_PATH;
 				break;
 			}
-            putchar('@');
 			if (*(dj->fn+11)) break;		/* Last segment match. Function completed. */
-            putchar('#');
 			dir = FatFs->buf;				/* There is next segment. Follow the sub directory */
-            putchar('%');
 			if (!(dir[DIR_Attr] & AM_DIR)) { /* Cannot follow because it is a file */
-                puts("not a dir!\n");
 				res = FR_NO_PATH; break;
 			}
 			dj->sclust =
@@ -500,8 +457,6 @@ BYTE check_fs (	/* 0:The FAT boot record, 1:Valid boot record but not an FAT, 2:
 BYTE *buf;
 DWORD sect;
 {
-    puts("check_fs sect=");printq((DWORD)sect,1);
-
 	if (disk_readp(buf, (DWORD)sect, 510, 2))		/* Read the boot sector */
 		return 3;
 
@@ -557,7 +512,6 @@ FATFS *fs;
 		} else {
 			if (buf[4]) {					/* Is the partition existing? */
 				bsect = LD_DWORD(&buf[8]);	/* Partition offset in LBA */
-                puts("check fat @");printq((DWORD)bsect,1);
 				fmt = check_fs(buf, (DWORD)bsect);	/* Check the partition */
 			}
 		}
@@ -565,20 +519,11 @@ FATFS *fs;
 	if (fmt == 3) return FR_DISK_ERR;
 	if (fmt) return FR_NO_FILESYSTEM;	/* No valid FAT patition is found */
 
-    puts("\nfmt=");phex8(fmt);puts(" bsect:");printq(bsect,1);
-
-
 	/* Initialize the file system object */
 	if (disk_readp(buf, (DWORD)bsect, 13, sizeof(buf))) return FR_DISK_ERR;
 
-    puts("\nfsize:");
-
 	fsize = LD_WORD(buf+BPB_FATSz16-13);				/* Number of sectors per FAT */
 	if (!fsize) fsize = LD_DWORD(buf+BPB_FATSz32-13);
-
-    printq((DWORD)fsize, 0);putchar(' ');
-
-    puts(" *"); phex8(buf[BPB_NumFATs-13]); putchar('>');
 
 #if SANE_COMPILER
 	fsize *= buf[BPB_NumFATs-13];						/* Number of sectors in FAT area */
@@ -586,12 +531,7 @@ FATFS *fs;
     fsize = fsize * ((DWORD)buf[BPB_NumFATs-13]);
 #endif
 
-    printq((DWORD)fsize, 0);putchar(' ');
-
 	fs->fatbase = bsect + LD_WORD(buf+BPB_RsvdSecCnt-13); /* FAT start sector (lba) */
-
-    puts("fatbase=");printq(fs->fatbase,1);
-
 	fs->csize = buf[BPB_SecPerClus-13];					/* Number of sectors per cluster */
 	fs->n_rootdir = LD_WORD(buf+BPB_RootEntCnt-13);		/* Nmuber of root directory entries */
 	tsect = LD_WORD(buf+BPB_TotSec16-13);				/* Number of sectors on the file system */
@@ -617,8 +557,6 @@ FATFS *fs;
 	else
 #endif
 	fs->dirbase = fs->fatbase + fsize;				/* Root directory start sector (lba) */
-
-    puts("\ndirbase=");printq((DWORD)fs->dirbase,1);
 
 	fs->database = fs->fatbase + fsize + fs->n_rootdir / 16;	/* Data start sector (lba) */
 
@@ -677,6 +615,12 @@ const char *path;
 /*-----------------------------------------------------------------------*/
 #if _USE_READ
 
+void shr9dw(dw) 
+DWORD* dw;
+{
+    *dw = *dw >> 9;
+}
+
 FRESULT pf_read (
 	buff,		/* Pointer to the read buffer (NULL:Forward data to the stream)*/
 	btr,		/* Number of bytes to read */
@@ -689,6 +633,7 @@ WORD* br;
 	DRESULT dr;
 	CLUST clst;
 	DWORD sect, remain;
+    DWORD dwtmp;
 	BYTE *rbuff = (BYTE*) buff;
 	WORD rcnt;
 	FATFS *fs = FatFs;
@@ -703,17 +648,21 @@ WORD* br;
 	if (btr > remain) btr = (WORD)remain;			/* Truncate btr by remaining bytes */
 
 	while (btr)	{									/* Repeat until all data transferred */
-		if ((fs->fptr % 512) == 0) {				/* On the sector boundary? */
-			if ((fs->fptr / 512 % fs->csize) == 0) {	/* On the cluster boundary? */
-				clst = (fs->fptr == 0) ?			/* On the top of the file? */
+		if ((fs->fptr % 512) == 0L) {				/* On the sector boundary? */
+            dwtmp = fs->fptr;
+            shr9dw(&dwtmp); /* fptr / 512 */
+            dwtmp = dwtmp % fs->csize;
+			/*if (( ((DWORD)(fs->fptr / 512)) % fs->csize) == 0L) {*/	/* On the cluster boundary? */
+			if (dwtmp == 0L) {	/* On the cluster boundary? */
+				clst = (fs->fptr == 0L) ?			/* On the top of the file? */
 					fs->org_clust : get_fat(fs->curr_clust);
 				if (clst <= 1) goto fr_abort;
 				fs->curr_clust = clst;				/* Update current cluster */
 				fs->csect = 0;						/* Reset sector offset in the cluster */
 			}
-			sect = clust2sect(fs->curr_clust);		/* Get current sector */
-			if (!sect) goto fr_abort;
-			fs->dsect = sect + fs->csect++;
+            getsect(fs->curr_clust, (DWORD*) &sect);/* Get current sector */
+			if (sect == 0L) goto fr_abort;
+			fs->dsect = sect + (DWORD)(fs->csect++);
 		}
 		rcnt = 512 - ((WORD)fs->fptr % 512);		/* Get partial sector data from sector buffer */
 		if (rcnt > btr) rcnt = btr;
@@ -776,8 +725,8 @@ FRESULT pf_write (
 				fs->curr_clust = clst;				/* Update current cluster */
 				fs->csect = 0;						/* Reset sector offset in the cluster */
 			}
-			sect = clust2sect(fs->curr_clust);		/* Get current sector */
-			if (!sect) goto fw_abort;
+            getsect(fs->curr_clust, (DWORD*) &sect);/* Get current sector */
+			if (sect == 0L) goto fw_abort;
 			fs->dsect = sect + fs->csect++;
 			if (disk_writep(0, (DWORD)fs->dsect)) goto fw_abort;	/* Initiate a sector write operation */
 			fs->flag |= FA__WIP;
@@ -844,8 +793,8 @@ DWORD ofs;
 			ofs -= bcs;
 		}
 		fs->fptr += ofs;
-		sect = clust2sect(clst);		/* Current sector */
-		if (!sect) goto fe_abort;
+        getsect(clst, (DWORD*) &sect); /* Current sector */
+		if (sect == 0L) goto fe_abort;
 		fs->csect = (BYTE)(ofs / 512);	/* Sector offset in the cluster */
 		if (ofs % 512)
 			fs->dsect = sect + fs->csect++;
@@ -886,14 +835,12 @@ const char *path;
 		res = follow_path(dj, path);			/* Follow the path to the directory */
 		if (res == FR_OK) {						/* Follow completed */
 			if (dir[0]) {						/* It is not the root dir */
-                puts("NOT ROOT ");
 				if (dir[DIR_Attr] & AM_DIR) {	/* The object is a directory */
 					dj->sclust =
 #if _FS_FAT32
 					((DWORD)LD_WORD(dir+DIR_FstClusHI) << 16) |
 #endif
 					LD_WORD(dir+DIR_FstClusLO);
-                    puts("dj->sclust=");printhex(dj->sclust);
 				} else {						/* The object is not a directory */
 					res = FR_NO_PATH;
 				}
