@@ -23,6 +23,8 @@ typedef enum {
 /*---------------------------------------*/
 /* Prototypes for disk control functions */
 
+void    disk_sbuf PARAMS((BYTE*)); /* set pointer to i/o buffer */
+
 DSTATUS disk_initialize PARAMS((void));
 DRESULT disk_readp PARAMS((BYTE*, DWORD, WORD, WORD));
 DRESULT disk_writep PARAMS((const BYTE*, DWORD));

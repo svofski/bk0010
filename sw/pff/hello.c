@@ -12,12 +12,17 @@ static char buf[128];
 
 static char fname[] = "BK0010/XXXXXXXX.XXX";
 
+static char buffer[512];
+
 int main ()
 {
     int x, n, i;
     unsigned int* spi = (unsigned int *)0177714;
 
 	puts ("hello.jpg\n");
+
+    disk_sbuf(buffer);
+
     do {
         puts("SD ");
         x = pf_mount(&fatfs);
