@@ -8,11 +8,11 @@ FILINFO fno;
 
 void xmit() {}
 
-static char buf[128];
 
 static char fname[] = "BK0010/XXXXXXXX.XXX";
 
-static char buffer[512];
+char buffer[512];
+char buf[128];
 
 int main ()
 {

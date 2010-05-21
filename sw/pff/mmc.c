@@ -34,8 +34,8 @@ BYTE xmit_spi PARAMS((BYTE));	    /* Send a byte */
 #define MMC_SEL       1
 #define INIT_SPI()    {}
 
-static BYTE* rbuf = 0;
-static DWORD rbuflba = 0xffffffffL;
+BYTE* rbuf = 0;
+DWORD rbuflba = 0xffffffffL;
 
 /* Set cache buffer */
 void disk_sbuf(bptr)

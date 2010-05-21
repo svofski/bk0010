@@ -8,7 +8,7 @@ CC		= pdp11-pcc
 LIBSTAND = ../stand/libstand.a
 
 CFLAGS		= -O
-LIBS		= $(LIBSTAND) libpff.a -L/usr/local/lib/pdp11 -lcrt
+LIBS		= -L. -L/usr/local/lib/pdp11 -L../stand -lpff -lstand -lcrt
 
 # Using ported AT&T UNIX utils.
 AS		= pdp11-asm
@@ -18,9 +18,9 @@ SIZE		= pdp11-size -o
 FSUTIL		= u6-fsutil -F
 LDFLAGS		= -X
 
-SRCS		= start.S
+SRCS		= start.S romstart.S
 OBJS		= pff.o mmc.o spi.o
-PROG		= hello
+PROG		= hello boot
 
 HIBASE  = 01000
 TOPSYS  = 040000
@@ -46,6 +46,12 @@ hello:		start.o $(LIBSTAND) libpff.a hello.o
 		pdp11-bkbin -a$(HIBASE) $@
 		pdp11-bkbin -b -a$(HIBASE) $@
 
+boot:		romstart.o $(LIBSTAND) libpff.a boot.o
+		$(LD) $(LDFLAGS) -a$(HIBASE) -o $@ romstart.o $@.o $(LIBS)
+		pdp11-disasm -a$(HIBASE) $@ > $@.dis
+		pdp11-bkbin -a$(HIBASE) $@
+		pdp11-bkbin -b -a$(HIBASE) $@
+
 .c.s:
 		$(CC) $(CFLAGS) $(CPPFLAGS) -S $<
 
@@ -61,8 +67,9 @@ depend:
 		mv Makefile~ Makefile
 
 ### DO NOT DELETE THIS LINE
+romstart.o: romstart.S
+spi.o: spi.S
 start.o: start.S
-a.o: a.c integer.h
 # DEPENDENCIES MUST END AT END OF FILE
 # IF YOU PUT STUFF HERE IT WILL GO AWAY
 # see make depend above
