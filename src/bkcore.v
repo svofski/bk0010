@@ -25,6 +25,8 @@ module bkcore(
         output              byte,           // byte access
         output              ifetch,         // instruction fetch cycle
         
+        output              bootrom_sel,     // boot rom active, rom area writable
+        
         input               kbd_available,  // i: key available 
         input        [7:0]  kbd_data,       // i: key code
         input               kbd_ar2,        // i: AR2 modifier
@@ -161,7 +163,7 @@ assign _Arbiter_cpu_pri = _cpu_pswout[7:5];
 
 assign adr = _cpu_adrs;
 assign byte = _cpu_byte;
-assign wt = _cpu_wt & ram_space;
+assign wt = _cpu_wt & (ram_space | bootrom_sel);
 assign rd = _cpu_rd & (ram_space | rom_space);
 
 // anything below 0x8000 is ram 
@@ -192,8 +194,12 @@ assign _cpu_error = bad_addr | (ifetch & stopkey);
 
    
 reg stopkey_latch;
-
 reg initreg_access_latch;
+
+// only the powerup value is 1, reset value is 0
+reg shadowmode = 1'b1;
+
+assign  bootrom_sel = shadowmode & rom_space;
 
 always @(negedge reset_n) begin
     init_reg_hi  <= 8'b10000000; // CPU start address MSB, not used by POP-11
@@ -205,11 +211,12 @@ assign _cpu_irq_in = kbd_available & ~kbdint_enable_n &(_Arbiter_cpu_pri == 0);
 
 always @(posedge clk or negedge reset_n) begin
     if(~reset_n) begin
-       kbdint_enable_n <= 1'b0;
-       bad_addr <= 1'b0;
-       roll <= 'o01330;
-       initreg_access_latch <= 0;
-       spi_cs_n <= 1'b1;
+        kbdint_enable_n <= 1'b0;
+        bad_addr <= 1'b0;
+        roll <= 'o01330;
+        initreg_access_latch <= 0;
+        spi_cs_n <= 1'b1;
+        shadowmode <= 1'b1;
     end
     else begin
         if (ce) begin
@@ -225,7 +232,12 @@ always @(posedge clk or negedge reset_n) begin
                         case (1)
                             regsel[KBD_STATE]:  kbdint_enable_n <= data_from_cpu[6];
                             regsel[ROLL]:       {roll[9],roll[7:0]} <= {data_from_cpu[9],data_from_cpu[7:0]};
-                            regsel[INITREG]:    {tape_out,initreg_access_latch,spi_cs_n} <= {data_from_cpu[6], 1'b1,data_from_cpu[0]};
+                            regsel[INITREG]:    begin
+                                                    if (data_from_cpu == 16'o100000) 
+                                                        shadowmode <= 1'b0;
+                                                    else
+                                                        {tape_out,initreg_access_latch,spi_cs_n} <= {data_from_cpu[6], 1'b1,data_from_cpu[0]};
+                                                end
                             regsel[USRREG]:     {spi_wren,spi_do} <= {1'b1,data_from_cpu[7:0]};
                         endcase
                     end
@@ -238,7 +250,7 @@ always @(posedge clk or negedge reset_n) begin
                     end // rd
                 end // good access to reg space
             end  //reg space
-            else if (rom_space & _cpu_wt)
+            else if (rom_space & _cpu_wt & ~shadowmode)
                 bad_addr = 1;
             else if (_cpu_rd & ~reg_space) begin
                 bad_addr = 0;

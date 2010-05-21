@@ -267,6 +267,8 @@ wire kbd_stopkey;
 wire kbd_keydown;
 wire kbd_ar2;
 
+wire bootrom_sel;       // 1 == memory reads from bootrom
+
  bkcore core (
     .reset_n(~CPU_reset), 
     .clk(clk_cpu), 
@@ -280,6 +282,9 @@ wire kbd_ar2;
     .adr(cpu_adr), 
     .byte(cpu_byte),
     .ifetch(ifetch),
+    
+    .bootrom_sel(bootrom_sel),
+    
     .cpu_opcode(cpu_opcode),
     .kbd_data(kbd_data), 
     .kbd_available(kbd_available),
@@ -330,7 +335,7 @@ always @(posedge clk_cpu or posedge reset_in) begin: _ramcycle
         end
         
         if (~cpu_oe_n) begin
-            latched_ram_data <= ram_a_data;
+            latched_ram_data <= bootrom_sel ? bootrom_data_o : ram_a_data;
             ram_reply <= 1;
         end else if (~cpu_we_n) begin
             ram_reply <= 1;
@@ -466,6 +471,17 @@ spi spi1(
     .do(spi_from_spi),
     .wr(spi_wren),
     .dsr(spi_dsr));
+
+// Boot ROM
+
+wire [15:0] bootrom_addr = cpu_adr[14:1]; // translate 0100000 -> 000000 and use word addresses
+wire [15:0] bootrom_data_o;
+
+bootrom bootrom1(
+    .clock(clk_cpu),
+    .address(bootrom_addr),
+    .q(bootrom_data_o));
+        
 
   
 endmodule
