@@ -161,7 +161,8 @@ assign full_screen_o = roll[9];
 assign cpu_rdy_internal = cpu_rdy & ~bad_addr;
 assign _Arbiter_cpu_pri = _cpu_pswout[7:5];
 
-assign adr = _cpu_adrs;
+assign adr = physical_addr; //_cpu_adrs;
+
 assign byte = _cpu_byte;
 assign wt = _cpu_wt & (ram_space | bootrom_sel);
 assign rd = _cpu_rd & (ram_space | rom_space);
@@ -171,13 +172,20 @@ assign ram_space = ~_cpu_adrs[15];
 assign reg_space = _cpu_adrs[15:7] == 9'b111111111;
 assign rom_space = _cpu_adrs[15] & ~reg_space;
 
+// Totally incompatible MMU register space: 
+// KISA0-KISA7: 177600 - 177616 (0 000 000 - 0 001 110)
+// UISA0-UISA7: 177620 - 177636 (0 010 000 - 0 011 110)
+// No descriptor regs, only plain mapping
+//wire   mmu_sel = regspace & (_cpu_adrs[6:5] == 2'b00);
+
 parameter 
     KBD_STATE = 0,
     KBD_DATA = 1,
     ROLL = 2,
     INITREG = 3,
     USRREG = 4,
-    LASTREGSEL = 4;
+    MMUREGS = 5,
+    LASTREGSEL = 5;
     
 wire        [LASTREGSEL:0] regsel;
 
@@ -186,6 +194,7 @@ assign regsel[KBD_DATA]  = (_cpu_adrs[6:0] == 'o062);
 assign regsel[ROLL]      = (_cpu_adrs[6:0] == 'o064);
 assign regsel[INITREG]   = (_cpu_adrs[6:0] == 'o116);
 assign regsel[USRREG]    = (_cpu_adrs[6:0] == 'o114);
+assign regsel[MMUREGS]   = (_cpu_adrs[6:5] == 2'b00);
 
 wire   bad_reg = ~|regsel;
 
@@ -198,6 +207,7 @@ reg initreg_access_latch;
 
 // only the powerup value is 1, reset value is 0
 reg shadowmode = 1'b1;
+reg mmu_enabled = 1'b0;
 
 assign  bootrom_sel = shadowmode & rom_space;
 
@@ -217,6 +227,7 @@ always @(posedge clk or negedge reset_n) begin
         initreg_access_latch <= 0;
         spi_cs_n <= 1'b1;
         shadowmode <= 1'b1;
+        mmu_enabled <= 1'b0;
     end
     else begin
         if (ce) begin
@@ -236,9 +247,10 @@ always @(posedge clk or negedge reset_n) begin
                                                     if (data_from_cpu == 16'o100000) 
                                                         shadowmode <= 1'b0;
                                                     else
-                                                        {tape_out,initreg_access_latch,spi_cs_n} <= {data_from_cpu[6], 1'b1,data_from_cpu[0]};
+                                                        {mmu_enabled,tape_out,initreg_access_latch,spi_cs_n} <= {data_from_cpu[8],data_from_cpu[6], 1'b1,data_from_cpu[0]};
                                                 end
                             regsel[USRREG]:     {spi_wren,spi_do} <= {1'b1,data_from_cpu[7:0]};
+                            regsel[MMUREGS]:    begin end // see mmu instantiation below
                         endcase
                     end
                     
@@ -250,7 +262,7 @@ always @(posedge clk or negedge reset_n) begin
                     end // rd
                 end // good access to reg space
             end  //reg space
-            else if (rom_space & _cpu_wt & ~shadowmode)
+            else if (rom_space & _cpu_wt & ~shadowmode) 
                 bad_addr = 1;
             else if (_cpu_rd & ~reg_space) begin
                 bad_addr = 0;
@@ -272,6 +284,7 @@ always @* begin: _databus_selector
             regsel[INITREG]:    databus_in = {init_reg_hi, 1'b1, ~keydown, tape_in, 1'b0, 1'b0, stopkey_latch|initreg_access_latch, 1'b0,1'b0};
             regsel[ROLL]:       databus_in = roll;
             regsel[USRREG]:     databus_in = {~spi_dsr, spi_di}; //16'o0;     // this could be a joystick...
+            regsel[MMUREGS]:    databus_in = data_from_mmu;
         endcase
         
     ~reg_space:
@@ -288,6 +301,25 @@ always @* begin: _databus_selector
     
 end
 
+wire [15:0] data_from_mmu;
+wire [21:0] physical_addr;
+wire        mmu_valid;
+
+memmap mmu(
+    .clk(clk),
+    .ce(ce),
+    .reset_n(reset_n),
+    .regwr(_cpu_wt & reg_space & regsel[MMUREGS]),
+    .regrd(_cpu_rd & reg_space & regsel[MMUREGS]),
+    .data_i(data_from_cpu),
+    .data_o(data_from_mmu),
+    .valid_o(mmu_valid),
+    .enable_i(mmu_enabled),
+    
+    .PSmode(2'b00),      // 11 = User, 00 = Kernel
+    .vaddr(_cpu_adrs),
+    .phaddr(physical_addr),
+);
 
 
 endmodule

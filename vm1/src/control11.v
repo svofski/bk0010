@@ -735,7 +735,7 @@ always @* begin
                             next = TRAP_SVC;
                         end
                         else if (do_ready) begin
-                            dataout(do_com);
+                            // - dataout(do_com);
                             `dp(`DBODST); `dp(`DBAADR);
 
                             if (TRACE) begin
