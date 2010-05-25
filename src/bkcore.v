@@ -175,6 +175,7 @@ assign rom_space = _cpu_adrs[15] & ~reg_space;
 // Totally incompatible MMU register space: 
 // KISA0-KISA7: 177600 - 177616 (0 000 000 - 0 001 110)
 // UISA0-UISA7: 177620 - 177636 (0 010 000 - 0 011 110)
+// Mapping control: 177700
 // No descriptor regs, only plain mapping
 //wire   mmu_sel = regspace & (_cpu_adrs[6:5] == 2'b00);
 
@@ -185,7 +186,8 @@ parameter
     INITREG = 3,
     USRREG = 4,
     MMUREGS = 5,
-    LASTREGSEL = 5;
+    MMUCTRL = 6,
+    LASTREGSEL = 6;
     
 wire        [LASTREGSEL:0] regsel;
 
@@ -195,6 +197,7 @@ assign regsel[ROLL]      = (_cpu_adrs[6:0] == 'o064);
 assign regsel[INITREG]   = (_cpu_adrs[6:0] == 'o116);
 assign regsel[USRREG]    = (_cpu_adrs[6:0] == 'o114);
 assign regsel[MMUREGS]   = (_cpu_adrs[6:5] == 2'b00);
+assign regsel[MMUCTRL]   = (_cpu_adrs[6:0] == 'o100);   
 
 wire   bad_reg = ~|regsel;
 
@@ -243,14 +246,16 @@ always @(posedge clk or negedge reset_n) begin
                         case (1)
                             regsel[KBD_STATE]:  kbdint_enable_n <= data_from_cpu[6];
                             regsel[ROLL]:       {roll[9],roll[7:0]} <= {data_from_cpu[9],data_from_cpu[7:0]};
-                            regsel[INITREG]:    begin
-                                                    if (data_from_cpu == 16'o100000) 
-                                                        shadowmode <= 1'b0;
-                                                    else
-                                                        {mmu_enabled,tape_out,initreg_access_latch,spi_cs_n} <= {data_from_cpu[8],data_from_cpu[6], 1'b1,data_from_cpu[0]};
-                                                end
+                            regsel[INITREG]:    //begin
+                                                //    if (data_from_cpu == 16'o100000) 
+                                                //        shadowmode <= 1'b0;
+                                                //    else
+                                                //        {mmu_enabled,tape_out,initreg_access_latch,spi_cs_n} <= {data_from_cpu[8],data_from_cpu[6], 1'b1,data_from_cpu[0]};
+                                                //end
+                                                {tape_out,initreg_access_latch,spi_cs_n} <= {data_from_cpu[6], 1'b1,data_from_cpu[0]};
+                                                
                             regsel[USRREG]:     {spi_wren,spi_do} <= {1'b1,data_from_cpu[7:0]};
-                            regsel[MMUREGS]:    begin end // see mmu instantiation below
+                            regsel[MMUCTRL]:    {mmu_enabled,shadowmode} <= {data_from_cpu[1],data_from_cpu[0]};
                         endcase
                     end
                     
@@ -285,6 +290,7 @@ always @* begin: _databus_selector
             regsel[ROLL]:       databus_in = roll;
             regsel[USRREG]:     databus_in = {~spi_dsr, spi_di}; //16'o0;     // this could be a joystick...
             regsel[MMUREGS]:    databus_in = data_from_mmu;
+            regsel[MMUCTRL]:    databus_in = {mmu_enabled,shadowmode};
         endcase
         
     ~reg_space:
