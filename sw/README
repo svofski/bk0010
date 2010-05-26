@@ -1,0 +1,8 @@
+For a complete development environment, you'll need to obtain BKUNIX sources.
+
+This directory contains source code for pdp11-bkbin utility to convert
+a.out executables into BK-0010 .bin (tape loader) format and the minimal
+standalone library/startup code.
+
+This code is based on BKUNIX source, which is subject to GNU General Public License.
+See file COPYING for details.
