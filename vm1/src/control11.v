@@ -677,7 +677,8 @@ always @* begin
                                                 next = TRAP_SVC;
                                             end
                                             else if (di_ready) begin
-                                                `dp(`DBIPS);
+                                                `dp(`DBIPS); 
+                                                `dp(`MODEIN); // set usermode to usermode_i
                                                 `dp(`SPALU1); `dp(`INC2); `dp(`ALUSP);
                                                 next = FS_IF0;
                                             end else begin
@@ -772,6 +773,7 @@ always @* begin
                     `dp(`RESET_BYTE); 
                     `dp(`SAVE_STAT);
                     `dp(`DBISRC);   // read interrupt vector from dbi
+                    `dp(`MODEIN);   // set usermode to usermode_i
                     iako = 1'b1; 
                     mbyte = 1'b0;
                     if (ierror) begin

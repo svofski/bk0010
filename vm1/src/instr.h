@@ -114,6 +114,8 @@
 `define PSWALU1		109
 `define DSTPSW		110
 
+`define MODEIN		111	
+
 `define TRAP_BUS 16'o 00004
 `define TRAP_ERR 16'o 00010
 `define TRAP_BPT 16'o 00014

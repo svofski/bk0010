@@ -56,7 +56,7 @@ module bk0010(
     output          cpu_wt,
     output reg      cpu_oe_n,
     output          ifetch,
-    output   [15:0] cpu_adr,
+    output   [16:0] cpu_adr,
     output    [7:0] redleds,
     output   [15:0] cpu_opcode,
     output   [15:0] cpu_sp,
@@ -264,6 +264,7 @@ assign cpu_rdy_final = cpu_rdy &  ~breakpoint_latch;
    
 
 wire kbd_stopkey;
+wire kbd_superkey;
 wire kbd_keydown;
 wire kbd_ar2;
 
@@ -292,6 +293,7 @@ wire bootrom_sel;       // 1 == memory reads from bootrom
     .roll_out(roll),
     .full_screen_o(full_screen),
     .stopkey(kbd_stopkey),
+    .superkey(kbd_superkey),
     .keydown(kbd_keydown),
     .kbd_ar2(kbd_ar2),
     .tape_out(tape_out),
@@ -389,7 +391,7 @@ assign vga_addr = { screen_y[8:1] - 'o0330 + roll , screen_x[8:4]};
 assign ram_addr = 
     ~(usb_we_n & usb_oe_n)? usb_addr:           
     ce_shifter_load ? {5'b00001, vga_addr} :
-    {1'b0, cpu_adr[15:1]};
+    {1'b0, cpu_adr[16:1]};
 
 assign ram_out_data = ~cpu_we_n ? data_from_cpu: ~usb_we_n ? usb_a_data : 16'h ffff;
 
@@ -448,6 +450,7 @@ kbd_intf kbd_intf (
     .kbd_available(kbd_available), 
     .read_kb(read_kbd),
     .key_stop(kbd_stopkey),
+    .key_super(kbd_superkey),
     .key_down(kbd_keydown),
     .ar2(kbd_ar2),
     );

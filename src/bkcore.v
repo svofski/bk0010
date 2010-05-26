@@ -21,7 +21,7 @@ module bkcore(
         input               reply_i,        // memory reply
         input       [15:0]  ram_data_i,     // data from ram 
         output reg  [15:0]  ram_data_o,     // data to ram
-        output      [15:0]  adr,            // address 
+        output      [16:0]  adr,            // address 
         output              byte,           // byte access
         output              ifetch,         // instruction fetch cycle
         
@@ -32,6 +32,7 @@ module bkcore(
         input               kbd_ar2,        // i: AR2 modifier
         output              read_kbd,       // o: key read confirmation
         input               stopkey,        // i: STOP key pressed
+        input               superkey,       // i: SUPER (ScrollLock) key pressed
         input               keydown,        // i: a key is being depressed
         
         output       [7:0]  roll_out,       // o: scroll register value
@@ -70,7 +71,6 @@ wire            _cpu_rd;
 wire            _cpu_wt;
 wire            _cpu_byte;
 wire            _cpu_int_ack;
-wire    [7:0]   _cpu_pswout;
 
 wire            rom_space;
 wire            ram_space;
@@ -103,6 +103,7 @@ always @*
     endcase
 
 wire [15:0] cpu_data_o;
+wire [15:0] cpu_psw;
 
 vm1 cpu(.clk(clk), 
         .ce(ce),
@@ -114,6 +115,9 @@ vm1 cpu(.clk(clk),
 
         .error_i(_cpu_error),      
         .RPLY(reply_i | reg_reply),
+        
+        .usermode_i(cpumode_req),
+        .psw(cpu_psw),
 
         .DIN(_cpu_rd),          // o: data in
         .DOUT(_cpu_wt),         // o: data out
@@ -159,7 +163,6 @@ end
 assign roll_out = roll[7:0];
 assign full_screen_o = roll[9];
 assign cpu_rdy_internal = cpu_rdy & ~bad_addr;
-assign _Arbiter_cpu_pri = _cpu_pswout[7:5];
 
 assign adr = physical_addr; //_cpu_adrs;
 
@@ -167,17 +170,24 @@ assign byte = _cpu_byte;
 assign wt = _cpu_wt & (ram_space | bootrom_sel);
 assign rd = _cpu_rd & (ram_space | rom_space);
 
-// anything below 0x8000 is ram 
-assign ram_space = ~_cpu_adrs[15];
 assign reg_space = _cpu_adrs[15:7] == 9'b111111111;
-assign rom_space = _cpu_adrs[15] & ~reg_space;
+
+wire   mmu_page_writable;
+assign ram_space =  mmu_page_writable & ~reg_space;     // formerly:    ~_cpu_adrs[15];
+assign rom_space = ~mmu_page_writable & ~reg_space;     // formerly:    _cpu_adrs[15] & ~reg_space;
+
+assign  bootrom_sel = shadowmode & _cpu_adrs[15] & ~reg_space;
+
+
+wire     cpu_mode = cpu_psw[15];   // 0 = kernel, 1 = user
+
+reg      cpumode_req; // bit 2 in MMUCTRL, the mode gets set on RTI/RTT or IRQ
 
 // Totally incompatible MMU register space: 
 // KISA0-KISA7: 177600 - 177616 (0 000 000 - 0 001 110)
 // UISA0-UISA7: 177620 - 177636 (0 010 000 - 0 011 110)
 // Mapping control: 177700
 // No descriptor regs, only plain mapping
-//wire   mmu_sel = regspace & (_cpu_adrs[6:5] == 2'b00);
 
 parameter 
     KBD_STATE = 0,
@@ -212,13 +222,11 @@ reg initreg_access_latch;
 reg shadowmode = 1'b1;
 reg mmu_enabled = 1'b0;
 
-assign  bootrom_sel = shadowmode & rom_space;
-
 always @(negedge reset_n) begin
     init_reg_hi  <= 8'b10000000; // CPU start address MSB, not used by POP-11
 end
 
-assign _cpu_irq_in = kbd_available & ~kbdint_enable_n &(_Arbiter_cpu_pri == 0);
+assign _cpu_irq_in = kbd_available & ~kbdint_enable_n;
 
 //assign spi_wren = ce & _cpu_wt & reg_space & regsel[USRREG];
 
@@ -231,11 +239,16 @@ always @(posedge clk or negedge reset_n) begin
         spi_cs_n <= 1'b1;
         shadowmode <= 1'b1;
         mmu_enabled <= 1'b0;
+        cpumode_req <= 1'b0;
     end
     else begin
         if (ce) begin
             spi_wren <= 1'b0;
+            
             if (stopkey) stopkey_latch <= 1'b1;
+            
+            if (superkey) cpumode_req <= 1'b0; // superkey sends cpu into kernel mode
+            
             if (reg_space) begin
                 if(bad_reg)
                     bad_addr <= 1;
@@ -246,16 +259,9 @@ always @(posedge clk or negedge reset_n) begin
                         case (1)
                             regsel[KBD_STATE]:  kbdint_enable_n <= data_from_cpu[6];
                             regsel[ROLL]:       {roll[9],roll[7:0]} <= {data_from_cpu[9],data_from_cpu[7:0]};
-                            regsel[INITREG]:    //begin
-                                                //    if (data_from_cpu == 16'o100000) 
-                                                //        shadowmode <= 1'b0;
-                                                //    else
-                                                //        {mmu_enabled,tape_out,initreg_access_latch,spi_cs_n} <= {data_from_cpu[8],data_from_cpu[6], 1'b1,data_from_cpu[0]};
-                                                //end
-                                                {tape_out,initreg_access_latch,spi_cs_n} <= {data_from_cpu[6], 1'b1,data_from_cpu[0]};
-                                                
+                            regsel[INITREG]:    {tape_out,initreg_access_latch,spi_cs_n} <= {data_from_cpu[6], 1'b1,data_from_cpu[0]};
                             regsel[USRREG]:     {spi_wren,spi_do} <= {1'b1,data_from_cpu[7:0]};
-                            regsel[MMUCTRL]:    {mmu_enabled,shadowmode} <= {data_from_cpu[1],data_from_cpu[0]};
+                            regsel[MMUCTRL]:    {cpumode_req,mmu_enabled,shadowmode} <= data_from_cpu[2:0];
                         endcase
                     end
                     
@@ -290,7 +296,7 @@ always @* begin: _databus_selector
             regsel[ROLL]:       databus_in = roll;
             regsel[USRREG]:     databus_in = {~spi_dsr, spi_di}; //16'o0;     // this could be a joystick...
             regsel[MMUREGS]:    databus_in = data_from_mmu;
-            regsel[MMUCTRL]:    databus_in = {mmu_enabled,shadowmode};
+            regsel[MMUCTRL]:    databus_in = {cpu_mode,cpumode_req,mmu_enabled,shadowmode};
         endcase
         
     ~reg_space:
@@ -321,8 +327,9 @@ memmap mmu(
     .data_o(data_from_mmu),
     .valid_o(mmu_valid),
     .enable_i(mmu_enabled),
+    .writable_o(mmu_page_writable),
     
-    .PSmode(2'b00),      // 11 = User, 00 = Kernel
+    .mode(cpu_mode),      // 1 = User, 0 = Kernel
     .vaddr(_cpu_adrs),
     .phaddr(physical_addr),
 );
