@@ -22,6 +22,8 @@ module vm1(clk,
            addr_o,
 
            error_i,      
+
+           usermode_i,  // latched during IAKO or RTI/RTT: 1 = user
            
            RPLY,        // i: reply to DIN or DOUT
            DIN,         // o: data in
@@ -45,6 +47,7 @@ module vm1(clk,
            SEL2,        // o: 177714 i/o -- no REPLY needed
            
            IFETCH,      // o: indicates IF0
+           
 
            dati,
            dato,
@@ -79,6 +82,7 @@ input           RPLY;        // i: reply to DIN or DOUT
 output  [15:0]  data_o;
 output  [15:0]  addr_o;
 input           error_i;
+input           usermode_i;
 output          DIN;         // o: data in
 output          DOUT;        // o: data out
 output          WTBT;        // o: byteio op/odd address
@@ -187,6 +191,7 @@ datapath dp(
     .dba(addr_o),
     .opcode(opcode),
     .psw(psw),
+    .usermode_i(usermode_i),
     .ctrl(dpcmd),
     .alucc(alucc),
     .taken(dp_taken),

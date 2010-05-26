@@ -11,7 +11,7 @@
 
 `default_nettype none
 
-module kbd_intf(mclk25, reset_in, PS2_Clk, PS2_Data, shift, ar2, ascii, kbd_available, read_kb, key_stop, key_down);
+module kbd_intf(mclk25, reset_in, PS2_Clk, PS2_Data, shift, ar2, ascii, kbd_available, read_kb, key_stop, key_super, key_down);
 
 input               mclk25, reset_in, read_kb;
 input               PS2_Clk,PS2_Data;
@@ -19,6 +19,7 @@ input               PS2_Clk,PS2_Data;
 output              shift, ar2, kbd_available;
    
 output              key_stop;
+output              key_super;
 output reg          key_down;       // any key is down
 
 reg    [2:0]        kbd_state;  
@@ -60,7 +61,8 @@ assign ascii = ctrl? {2'b0, decoded[4:0]} : decoded;
 wire scan_shift = Scan_Code == 8'h12;
 wire scan_ctrl  = Scan_Code == 8'h14;
 wire scan_alt   = Scan_Code == 8'h11;
-wire scan_stop  = Scan_Code == 8'h07;
+wire scan_stop  = Scan_Code == 8'h07;   // F12 = STOP
+wire scan_super = Scan_Code == 8'h7e;   // ScrollLock = SUPER/ Loader mode
 
 always @(posedge mclk25 ) begin 
     if(reset_in) begin
@@ -79,6 +81,8 @@ always @(posedge mclk25 ) begin
                 alt <= 1;
             else if (scan_stop) begin
                 stop_ctr <= 1;
+            end else if (scan_super) begin
+                super_ctr <= 1;
             end
         end 
         else if( kbd_state == 6) begin
@@ -90,14 +94,17 @@ always @(posedge mclk25 ) begin
                 alt <= 0;
         end
         
-        if (stop_ctr != 0) stop_ctr <= stop_ctr + 1;
+        if (stop_ctr != 0) stop_ctr <= stop_ctr + 1'b1;
+        if (super_ctr != 0) super_ctr <= super_ctr + 1'b1;
     end
 end //always
 
 
 reg [15:0] stop_ctr;
-
 assign key_stop = stop_ctr[7:0] != 0 && stop_ctr[15:8] == 0;
+
+reg [15:0] super_ctr;
+assign key_super = super_ctr[7:0] != 0 && super_ctr[15:8] == 0;
  
 always @(posedge mclk25) begin
     if(reset_in) begin

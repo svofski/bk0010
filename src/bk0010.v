@@ -264,6 +264,7 @@ assign cpu_rdy_final = cpu_rdy &  ~breakpoint_latch;
    
 
 wire kbd_stopkey;
+wire kbd_superkey;
 wire kbd_keydown;
 wire kbd_ar2;
 
@@ -292,6 +293,7 @@ wire bootrom_sel;       // 1 == memory reads from bootrom
     .roll_out(roll),
     .full_screen_o(full_screen),
     .stopkey(kbd_stopkey),
+    .superkey(kbd_superkey),
     .keydown(kbd_keydown),
     .kbd_ar2(kbd_ar2),
     .tape_out(tape_out),
@@ -448,6 +450,7 @@ kbd_intf kbd_intf (
     .kbd_available(kbd_available), 
     .read_kb(read_kbd),
     .key_stop(kbd_stopkey),
+    .key_super(kbd_superkey),
     .key_down(kbd_keydown),
     .ar2(kbd_ar2),
     );

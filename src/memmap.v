@@ -11,7 +11,7 @@ module memmap(
     output reg      valid_o,
     input           enable_i,
     
-    input   [1:0]   PSmode,      // 11 = User, 00 = Kernel
+    input           mode,      // 1 = User, 0 = Kernel
     input   [15:0]  vaddr,
     output reg[21:0]phaddr,
     output reg      writable_o,
@@ -52,12 +52,10 @@ wire [6:0] BN  = vaddr[12:6];
 wire [5:0] BOFS = vaddr[5:0];
 
 always @*
-    casex ({enable_i,PSmode})   
-    3'b0xx:  phaddr = vaddr;
-    3'b100:  phaddr = {KISA[regidx][14:0] + BN, BOFS};
-    3'b101,
-    3'b110,
-    3'b111:  phaddr = {UISA[regidx][14:0] + BN, BOFS};
+    casex ({enable_i,mode})   
+    2'b0x:  phaddr = vaddr;
+    2'b10:  phaddr = {KISA[regidx][14:0] + BN, BOFS};
+    2'b11:  phaddr = {UISA[regidx][14:0] + BN, BOFS};
     endcase
 
 
@@ -65,12 +63,10 @@ always @*
 //assign rom_space = _cpu_adrs[15] & ~reg_space;
 
 always @*
-    casex ({enable_i,PSmode})
-    3'b0xx: writable_o = ~vaddr[15];
-    3'b100: writable_o = KISA[regidx][15];
-    3'b101,
-    3'b110,
-    3'b111: writable_o = UISA[regidx][15];
+    casex ({enable_i,mode})
+    2'b0x: writable_o = ~vaddr[15];
+    2'b10: writable_o = KISA[regidx][15];
+    2'b11: writable_o = UISA[regidx][15];
     endcase
 
 assign K0 = KISA[regidx];
