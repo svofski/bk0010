@@ -56,7 +56,7 @@ module bk0010(
     output          cpu_wt,
     output reg      cpu_oe_n,
     output          ifetch,
-    output   [15:0] cpu_adr,
+    output   [16:0] cpu_adr,
     output    [7:0] redleds,
     output   [15:0] cpu_opcode,
     output   [15:0] cpu_sp,
@@ -389,7 +389,7 @@ assign vga_addr = { screen_y[8:1] - 'o0330 + roll , screen_x[8:4]};
 assign ram_addr = 
     ~(usb_we_n & usb_oe_n)? usb_addr:           
     ce_shifter_load ? {5'b00001, vga_addr} :
-    {1'b0, cpu_adr[15:1]};
+    {1'b0, cpu_adr[16:1]};
 
 assign ram_out_data = ~cpu_we_n ? data_from_cpu: ~usb_we_n ? usb_a_data : 16'h ffff;
 

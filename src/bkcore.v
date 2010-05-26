@@ -21,7 +21,7 @@ module bkcore(
         input               reply_i,        // memory reply
         input       [15:0]  ram_data_i,     // data from ram 
         output reg  [15:0]  ram_data_o,     // data to ram
-        output      [15:0]  adr,            // address 
+        output      [16:0]  adr,            // address 
         output              byte,           // byte access
         output              ifetch,         // instruction fetch cycle
         
@@ -167,17 +167,21 @@ assign byte = _cpu_byte;
 assign wt = _cpu_wt & (ram_space | bootrom_sel);
 assign rd = _cpu_rd & (ram_space | rom_space);
 
-// anything below 0x8000 is ram 
-assign ram_space = ~_cpu_adrs[15];
 assign reg_space = _cpu_adrs[15:7] == 9'b111111111;
-assign rom_space = _cpu_adrs[15] & ~reg_space;
+
+wire   mmu_page_writable;
+assign ram_space =  mmu_page_writable & ~reg_space;     // formerly:    ~_cpu_adrs[15];
+assign rom_space = ~mmu_page_writable & ~reg_space;     // formerly:    _cpu_adrs[15] & ~reg_space;
+
+assign  bootrom_sel = shadowmode & rom_space;
+
+
 
 // Totally incompatible MMU register space: 
 // KISA0-KISA7: 177600 - 177616 (0 000 000 - 0 001 110)
 // UISA0-UISA7: 177620 - 177636 (0 010 000 - 0 011 110)
 // Mapping control: 177700
 // No descriptor regs, only plain mapping
-//wire   mmu_sel = regspace & (_cpu_adrs[6:5] == 2'b00);
 
 parameter 
     KBD_STATE = 0,
@@ -211,8 +215,6 @@ reg initreg_access_latch;
 // only the powerup value is 1, reset value is 0
 reg shadowmode = 1'b1;
 reg mmu_enabled = 1'b0;
-
-assign  bootrom_sel = shadowmode & rom_space;
 
 always @(negedge reset_n) begin
     init_reg_hi  <= 8'b10000000; // CPU start address MSB, not used by POP-11
@@ -321,6 +323,7 @@ memmap mmu(
     .data_o(data_from_mmu),
     .valid_o(mmu_valid),
     .enable_i(mmu_enabled),
+    .writable_o(mmu_page_writable),
     
     .PSmode(2'b00),      // 11 = User, 00 = Kernel
     .vaddr(_cpu_adrs),
