@@ -78,3 +78,7 @@ int main ()
 
 	return 0;
 }
+
+void kenter() {
+    puts("Here's Johnny!\n");
+}

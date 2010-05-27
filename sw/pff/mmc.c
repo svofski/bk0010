@@ -4,7 +4,7 @@
 
 #include <ansidecl.h>
 
-#define _WRITE_FUNC	1
+#define _WRITE_FUNC	0
 
 #include "diskio.h"
 

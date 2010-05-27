@@ -15,9 +15,15 @@
 
 	.globl	_edata
 	.globl	_main
+    .globl  _kenter
 	.data
 
     KISA = 0177600
+    UISA = 0177620
+
+    / bit 0: 1 = shadow on
+    / bit 1: 1 = mapping on
+    / bit 2: 1 = user mode, 0 = kernel mode
     MMUCTL = 0177700
 
 /-----------------------
@@ -25,19 +31,36 @@
 /
 	.text
 init:
-    / init ram map: linear, all writable (bit 15 set)
+    / we start in kernel mode
+
+    / init default ram map for K and U: linear, all writable in K (bit 15 set)
     mov $0100000, r0
+    mov $0100000, r3
     mov $KISA, r1
+    mov $UISA, r2
 9:
     mov r0, (r1)+
+    mov r3, (r2)+
+
+    / make pages above 0100000 read-only in U
+    add $0200, r3
+    cmp $0101000, r3
+    bne 8f
+    bic $0100000, r3
+8:
     add $0200, r0
     bit $02000, r0
     beq 9b
 
-    / enable mapping
-    / bis $2, *$MMUCTL  
+    / map kernel pages 0 and 200 to the second 64K
+    mov r0, *$KISA
+    add $200, r0
+    mov r0, *$KISA+2
 
-    / copy self to ram area at 01000
+    / enable mapping
+    bis $2, *$MMUCTL  
+
+    / copy self to virtual ram area at 01000 (physical 201000)
     mov $0100000, r0
     mov $01000, r1
     mov $4096, r3 / decimal
@@ -49,7 +72,7 @@ init:
 	cmp	r0,$ TOPSYS
 	blo	1b
 
-	mov	r0,sp			/ set up stack pointer
+	mov	r0,sp			/ set up kernel stack pointer
 
     / call main and make it return into 01000-space
     mov $Lret, r0
@@ -59,7 +82,54 @@ Lret:
     / this will execute in 01000-space after return from main
     / disable shadow 
     bic $1, *$MMUCTL
-    / enable mapping
-    bis $2, *$MMUCTL
-    / boot bios
-    jmp *$0100000
+
+    / keyboard handler for k-mode (060)
+    mov $_kkirq, *$060
+    clr *$062
+
+    / set usermode request bit
+    bis $4, *$MMUCTL
+    clr -(sp)
+    mov $0100000, -(sp)
+    / boot bios in user mode
+    rti 
+
+_kkirq:
+    mov r0,-(sp)
+    mov r1,-(sp)
+    mov r2,-(sp)
+    mov r3,-(sp)
+    mov r4,-(sp)
+    mov r5,-(sp)
+
+    / copy userspace interrupt vectors to kernelspace
+    
+    mov $0, *$KISA+8        / map userspace 0 to 0100000
+    
+    mov $0100400, r0        / copy vectors that are now in 0100000-0100400...
+    mov $0400, r1           / ...to 0000-0400
+3:
+    mov -(r0),-(r1)
+    tst r1
+    bne 3b
+    
+    mov $01000, *$KISA+8    / restore 0100000 mapping
+    
+    mov $_kkirq, *$060      / overwrite vector 060
+    clr *$062
+    
+    / ready to use bios in kernel mode
+
+    jsr pc, _kenter
+
+    mov (sp)+,r5
+    mov (sp)+,r4
+    mov (sp)+,r3
+    mov (sp)+,r2
+    mov (sp)+,r1
+    mov (sp)+,r0
+
+    com *$040000        / easy to see
+    
+    bis $4, *$MMUCTL    / kate, we need to go back!
+    rti
