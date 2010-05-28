@@ -10,10 +10,9 @@ FILINFO fno;
 
 void xmit() {}
 
-static char fname[] = "BK0010/100000.ROM";
+static char fname[] = "BK0010/100000.ROM\0\0\0\0";
 
 unsigned char buffer[512];
-unsigned char buf[128];
 
 #if DEBUG
 #define debug(x)    puts(x)
@@ -52,17 +51,6 @@ int main ()
         /* pf_read(romptr, fatfs.fsize, &n); */
 
         x = 0;
-/*
-        for(; pf_read(buf, sizeof(buf), &n) == FR_OK;) {
-            for (i = 0; i < sizeof(buf); i++) {
-                *romptr++ = buf[i];
-                if (romptr >= 0177600) break;
-            }
-            x += n;
-            if (romptr >= 0177600) break;
-            if (n < sizeof(buf)) break;
-        }
-*/
         pf_read(romptr, 32752, &n);
     } else {
         debug(" - couldn't open");
@@ -79,6 +67,42 @@ int main ()
 	return 0;
 }
 
+int loadbin() {
+    int n;
+    unsigned length;
+    unsigned char *ptr;
+
+    if (pf_open(fname) == FR_OK) {
+        if (pf_read(buffer, 4, &n) == FR_OK) {
+            ptr = (unsigned char *) LD_WORD(buffer);
+            ptr += 0120000;
+
+            length = (unsigned) LD_WORD(buffer+2);
+
+            if (pf_read(ptr, length, &n) == FR_OK) {
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
 void kenter() {
+    int c;
+    int i = 7;
+
     puts("Here's Johnny!\n");
+    puts("File: ");
+    /*for (i = 7; i < 7+12 && ((c = getchar()) != '\n'); fname[i++] = c);*/
+    for (i = 7; i < 7+12; i++) {
+        c = getchar();
+        putchar(c);
+        if (c == '\n') break;
+        fname[i] = c;
+    }
+    fname[i] = '\0';
+    puts("\nLoading "); puts(fname); puts(" ...");
+    puts(loadbin() ? "Ok" : "Fail");
+    putchar('\n');
 }
