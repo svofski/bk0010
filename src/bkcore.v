@@ -207,8 +207,8 @@ assign regsel[KBD_DATA]  = (_cpu_adrs[6:0] == 'o062);
 assign regsel[ROLL]      = (_cpu_adrs[6:0] == 'o064);
 assign regsel[INITREG]   = (_cpu_adrs[6:0] == 'o116);
 assign regsel[USRREG]    = (_cpu_adrs[6:0] == 'o114);
-assign regsel[MMUREGS]   = (_cpu_adrs[6:5] == 2'b00);
-assign regsel[MMUCTRL]   = (_cpu_adrs[6:0] == 'o100);   
+assign regsel[MMUREGS]   = (_cpu_adrs[6:5] == 2'b00) & ~cpu_mode;
+assign regsel[MMUCTRL]   = (_cpu_adrs[6:0] == 'o100) & ~cpu_mode;   
 
 wire   bad_reg = ~|regsel;
 
