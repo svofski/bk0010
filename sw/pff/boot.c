@@ -10,7 +10,8 @@ FILINFO fno;
 
 void xmit() {}
 
-static char fname[] = "BK0010/100000.ROM\0\0\0\0";
+static char fname[] = "BK0010/100000.ROM\0XXXXXXXXXXXX";
+#define FNBUFL 30
 
 unsigned char buffer[512];
 
@@ -59,11 +60,6 @@ int main ()
     debug("read "); printhex(count); debug("\n");
 #endif
 
-    /*
-    asm("mov $0, *$0177700 / disable shadow");
-    asm("jmp *$0100000");
-    */
-
 	return 0;
 }
 
@@ -88,21 +84,57 @@ int loadbin() {
     return 0;
 }
 
+#define abs(x) ((x) > 0 ? (x):-(x))
+
+void pputs(s, width)
+char *s;
+int width;
+{
+    int slen = strlen(s);
+    int pad;
+
+    puts(s);
+    for (pad = width - slen; --pad >= 0;) putchar(' ');
+}
+
+
+int listdir() {
+    FRESULT r;
+    int i;
+
+    for(i = 3; --i >= 0 || (r = pf_opndir(&dir, "BK0010")) != FR_OK;);
+
+    if (i) {
+        for(i = 0; pf_rddir(&dir, &fno) == FR_OK; i++) {
+            if (!fno.fname[0]) break;
+            pputs(fno.fname, 16);
+        }
+        return 0;
+    } 
+
+    return -1;
+}
+
 void kenter() {
     int c;
     int i = 7;
 
-    puts("Here's Johnny!\n");
-    puts("File: ");
-    /*for (i = 7; i < 7+12 && ((c = getchar()) != '\n'); fname[i++] = c);*/
-    for (i = 7; i < 7+12; i++) {
-        c = getchar();
-        putchar(c);
-        if (c == '\n') break;
-        fname[i] = c;
-    }
+    puts("\n.bin file name: ");
+    for (i = 7; 
+         i < FNBUFL && ((c = getchar()) != '\n'); 
+         fname[i] = c, 
+         i += (c != 030) ? 1 : i > 7 ? -1 : 0,
+         putchar(c));
+
     fname[i] = '\0';
-    puts("\nLoading "); puts(fname); puts(" ...");
-    puts(loadbin() ? "Ok" : "Fail");
+
+    if (i == 7) {
+        puts("\nDirectory:\n");
+        if(listdir()) puts("Fail");
+    } else {
+        puts("\nLoading "); puts(fname); puts(" ...");
+        puts(loadbin() ? "Ok" : "Fail");
+    }
+
     putchar('\n');
 }

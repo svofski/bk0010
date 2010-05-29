@@ -14,7 +14,7 @@ LIBS		= -L. -L/usr/local/lib/pdp11 -L../stand -lpff -lstand -lcrt
 AS		= pdp11-asm
 AR		= pdp11-ar
 LD		= pdp11-ld
-SIZE		= pdp11-size -o
+SIZE		= pdp11-size -d
 FSUTIL		= u6-fsutil -F
 LDFLAGS		= -X
 

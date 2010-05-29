@@ -18,6 +18,8 @@
     .globl  _kenter
     .globl _printhex
 	.data
+_spsave: .word 0
+
 
     KISA = 0177600
     UISA = 0177620
@@ -84,9 +86,7 @@ Lret:
     / disable shadow 
     bic $1, *$MMUCTL
 
-    / keyboard handler for k-mode (060)
-    mov $_kkirq, *$060
-    clr *$062
+    jsr pc, _vinst         / setup vectors
 
     / set usermode request bit
     bis $4, *$MMUCTL
@@ -95,13 +95,35 @@ Lret:
     / boot bios in user mode
     rti 
 
+    / setup vectors
+_vinst:
+    / keyboard handler for k-mode (060)
+    mov $_kkirq, *$060
+_vinst2:
+    mov $0200, r0
+    mov r0, *$062
+     
+    mov $_abort, *$04
+    mov r0, *$06
+
+    mov $_abort, *$10
+    mov r0, *$12
+    rts pc
+  
+_abort:
+    mov *$_spsave, sp
+    jmp _restore
+
 _kkirq:
+    com *$040000            / cue on
+
     mov r0,-(sp)
     mov r1,-(sp)
     mov r2,-(sp)
     mov r3,-(sp)
     mov r4,-(sp)
     mov r5,-(sp)
+    mov sp, *$_spsave
 
     / copy userspace interrupt vectors to kernelspace
     
@@ -115,20 +137,21 @@ _kkirq:
     tst r1
     bne 3b
     
-    / mov $01000, *$KISA+8    / restore 0100000 mapping
-
-    
     / print SP
-    mov sp, -(sp)
-    jsr pc, _printhex
-    mov (sp)+, r0
+    / mov sp, -(sp)
+    / jsr pc, _printhex
+    / mov (sp)+, r0
+
+    jsr pc, _vinst2         / install abort handlers
     
+    mtps $0                 / enable interrupts
+
     / ready to use bios in kernel mode
 
     jsr pc, _kenter
 
-    mov $_kkirq, *$060      / overwrite vector 060
-    clr *$062
+_restore:
+    jsr pc, _vinst          / reinstall the initial hook
 
     mov (sp)+,r5
     mov (sp)+,r4
@@ -137,7 +160,7 @@ _kkirq:
     mov (sp)+,r1
     mov (sp)+,r0
 
-    com *$040000            / an easy to see cue
+    com *$040000            / cue off
     
     bis $4, *$MMUCTL        / kate, we need to go back!
     rti
