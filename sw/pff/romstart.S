@@ -12,6 +12,11 @@
  * See the accompanying file "COPYING" for more details.
  */
 
+/*
+  000000-177777 regular ram/rom/regs
+  200000-237777 kernel/bin loader space
+  240000-267777 kernel screen backup
+ */
 
 	.globl	_edata
 	.globl	_main
@@ -57,7 +62,7 @@ init:
 
     / map kernel pages 0 and 200 to the second 64K
     mov r0, *$KISA
-    add $200, r0
+    add $0200, r0
     mov r0, *$KISA+2
 
     / enable mapping
@@ -106,12 +111,13 @@ _vinst2:
     mov $_abort, *$04
     mov r0, *$06
 
-    mov $_abort, *$10
-    mov r0, *$12
+    mov $_abort, *$010
+    mov r0, *$012
     rts pc
   
 _abort:
     mov *$_spsave, sp
+1:  br .
     jmp _restore
 
 _kkirq:
@@ -125,13 +131,15 @@ _kkirq:
     mov r5,-(sp)
     mov sp, *$_spsave
 
+    jsr pc, _scrprep                / backup screen contents
+
     / copy userspace interrupt vectors to kernelspace
     
-    mov $0100000, *$KISA+10        / map userspace 0000000 to 0120000, RW
-    mov $0100200, *$KISA+12        / map userspace 0020000 to 0140000, RW
+    mov $0100000, *$KISA+10         / map userspace 0000000 to 0120000, RW
+    mov $0100200, *$KISA+12         / map userspace 0020000 to 0140000, RW
     
-    mov $0120400, r0        / copy vectors that are now in 0120000-0120400...
-    mov $0400, r1           / ...to 0000-0400
+    mov $0120400, r0                / copy vectors that are now in 0120000-0120400...
+    mov $0400, r1                   / ...to 0000-0400
 3:
     mov -(r0),-(r1)
     tst r1
@@ -142,16 +150,19 @@ _kkirq:
     / jsr pc, _printhex
     / mov (sp)+, r0
 
-    jsr pc, _vinst2         / install abort handlers
+    jsr pc, _vinst2                 / install abort handlers
     
-    mtps $0                 / enable interrupts
+    mtps $0                         / enable interrupts
 
     / ready to use bios in kernel mode
 
     jsr pc, _kenter
 
 _restore:
+    jsr pc, _scrrest
+
     jsr pc, _vinst          / reinstall the initial hook
+
 
     mov (sp)+,r5
     mov (sp)+,r4
@@ -162,5 +173,25 @@ _restore:
 
     com *$040000            / cue off
     
-    bis $4, *$MMUCTL        / kate, we need to go back!
+    bis $4, *$MMUCTL        / kate, we have to go back!
     rti
+
+_scrprep:
+    mov $0102400, *$KISA+10      / map 0100000v, rw 0240000p to 
+    mov $0102600, *$KISA+12      / map 0120000v, rw 0260000p to 
+
+    mov  $040000, r1
+    mov $0120000, r2
+_scrcopy:
+    mov $020000, r3
+1:  mov (r1)+,(r2)+
+    sob r3, 1b
+    rts pc
+
+_scrrest:
+    mov $0002400, *$KISA+10      / map 0240000p to 0120000v, ro
+    mov $0002600, *$KISA+12      / map 0260000p to 0100000v, ro
+
+    mov  $0120000, r1
+    mov  $040000,  r2
+    br  _scrcopy

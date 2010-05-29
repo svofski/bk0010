@@ -32,6 +32,8 @@ CPPFLAGS	= -I. -DKERNEL -DTOPSYS=$(TOPSYS)
 
 all:		$(PROG)
 		$(SIZE) $(PROG)
+		ls -l boot.bxx
+        
 
 clean:
 		rm -f *~ *.o *.s *.a *.dis a.out *.bin *.bxx $(PROG)
