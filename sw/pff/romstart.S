@@ -16,6 +16,7 @@
 	.globl	_edata
 	.globl	_main
     .globl  _kenter
+    .globl _printhex
 	.data
 
     KISA = 0177600
@@ -104,23 +105,30 @@ _kkirq:
 
     / copy userspace interrupt vectors to kernelspace
     
-    mov $0, *$KISA+8        / map userspace 0 to 0100000
+    mov $0100000, *$KISA+10        / map userspace 0000000 to 0120000, RW
+    mov $0100200, *$KISA+12        / map userspace 0020000 to 0140000, RW
     
-    mov $0100400, r0        / copy vectors that are now in 0100000-0100400...
+    mov $0120400, r0        / copy vectors that are now in 0120000-0120400...
     mov $0400, r1           / ...to 0000-0400
 3:
     mov -(r0),-(r1)
     tst r1
     bne 3b
     
-    mov $01000, *$KISA+8    / restore 0100000 mapping
+    / mov $01000, *$KISA+8    / restore 0100000 mapping
+
     
-    mov $_kkirq, *$060      / overwrite vector 060
-    clr *$062
+    / print SP
+    mov sp, -(sp)
+    jsr pc, _printhex
+    mov (sp)+, r0
     
     / ready to use bios in kernel mode
 
     jsr pc, _kenter
+
+    mov $_kkirq, *$060      / overwrite vector 060
+    clr *$062
 
     mov (sp)+,r5
     mov (sp)+,r4
@@ -129,7 +137,7 @@ _kkirq:
     mov (sp)+,r1
     mov (sp)+,r0
 
-    com *$040000        / easy to see
+    com *$040000            / an easy to see cue
     
-    bis $4, *$MMUCTL    / kate, we need to go back!
+    bis $4, *$MMUCTL        / kate, we need to go back!
     rti
