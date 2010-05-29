@@ -250,20 +250,28 @@ always @(posedge clk or negedge reset_n)
         endcase
     end
 
+always @(posedge clk) begin
+    if (~reset_n) begin
+        usermode <= 0;
+    end else if (ce) begin
+        case (1'b1)
+        ctrl[`MODEIN]:
+            usermode <= usermode_i;
+        endcase
+    end
+end
+
 // @ ps
 always @(posedge clk) 
     if (~reset_n) begin
         prio <= 0;
         trapbit <= 0;
-        usermode <= 0;
+        //usermode <= 0;
     end else if (ce) begin
         case (1'b1) // synopsys parallel_case
-        ctrl[`VECTORPS],
-        ctrl[`DBIPS]:
+        ctrl[`DBIPS],
+        ctrl[`VECTORPS]:
                 {prio,trapbit,fn,fz,fv,fc} <= dbi_r[7:0];
-            
-        ctrl[`MODEIN]:
-            usermode <= usermode_i;
             
         ctrl[`DSTPSW]:
             {prio,fn,fz,fv,fc} <= {DST[7:5],DST[3:0]};
