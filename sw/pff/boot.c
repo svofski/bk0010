@@ -68,7 +68,9 @@ int loadbin() {
     unsigned length;
     unsigned char *ptr;
 
-    if (pf_open(fname) == FR_OK) {
+    for(n = 3; --n >= 0 || pf_open(fname) != FR_OK;);
+
+    if (n) {
         if (pf_read(buffer, 4, &n) == FR_OK) {
             ptr = (unsigned char *) LD_WORD(buffer);
             ptr += 0120000;
@@ -119,7 +121,7 @@ void kenter() {
     int c;
     int i = 7;
 
-    puts("\n.bin file name: ");
+    puts("\nFile name: ");
     for (i = 7; 
          i < FNBUFL && ((c = getchar()) != '\n'); 
          fname[i] = c, 

@@ -22,9 +22,6 @@
 	.globl	_main
     .globl  _kenter
     .globl _printhex
-	.data
-_spsave: .word 0
-
 
     KISA = 0177600
     UISA = 0177620
@@ -34,13 +31,27 @@ _spsave: .word 0
     / bit 2: 1 = user mode, 0 = kernel mode
     MMUCTL = 0177700
 
+	.data
+_spsave: .word 0
+
+    / startup icon
+_ohai:
+    .word 0037777,0060001,0102235,0161205,0100635,0161245,0102245,0162235,0100001,0177777
+
 /-----------------------
 / System starts here.
 /
 	.text
 init:
-    / we start in kernel mode
+    / we start in kernel mode, MMU disabled
 
+    / clear screen
+    mov $040000, r0
+1:  clr (r0)+
+    tst r0
+    bpl 1b
+
+mmuinit:
     / init default ram map for K and U: linear, all writable in K (bit 15 set)
     mov $0100000, r0
     mov $0100000, r3
@@ -82,6 +93,17 @@ init:
 
 	mov	r0,sp			/ set up kernel stack pointer
 
+helo:                   / display happy icon
+    mov $060140, r0
+    mov $_ohai, r1
+    mov $10, r3
+1:  mov (r1),(r0)
+    add $0100, r0
+    mov (r1)+,(r0)
+    add $0100, r0
+    sob r3, 1b
+
+themain:
     / call main and make it return into 01000-space
     mov $Lret, r0
     jsr r0, *$_main
@@ -159,10 +181,9 @@ _kkirq:
     jsr pc, _kenter
 
 _restore:
-    jsr pc, _scrrest
-
+    jsr pc, _pause          / pause before restoring..
+    jsr pc, _scrrest        / restore original display
     jsr pc, _vinst          / reinstall the initial hook
-
 
     mov (sp)+,r5
     mov (sp)+,r4
@@ -195,3 +216,9 @@ _scrrest:
     mov  $0120000, r1
     mov  $040000,  r2
     br  _scrcopy
+
+_pause:
+    mov $4096, r0
+1:  sob r0, .
+
+
