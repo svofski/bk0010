@@ -1,7 +1,17 @@
-/*
+/*! \file
  * Startup code for standalone programs usable in monitor
  * without RAM extensions. 
  * Requires TOPSYS to be defined * e.g. -DTOPSYS=040000
+ *
+ * \section Physical memory map
+ * 000000-177777 regular ram/rom/regs
+ * 200000-237777 kernel/bin loader space
+ * 240000-267777 kernel screen backup
+ *
+ * \section external functions
+ * findrom() mount fs and open rom image file
+ * loadrom() load rom image into 0100000 
+ * kenter()  handle ScrollLock key, load bin files
  *
  * This file is based on BKUNIX project. 
  */
@@ -10,12 +20,6 @@
  * This file is part of BKUNIX project, which is distributed
  * under the terms of the GNU General Public License (GPL).
  * See the accompanying file "COPYING" for more details.
- */
-
-/*
-  000000-177777 regular ram/rom/regs
-  200000-237777 kernel/bin loader space
-  240000-267777 kernel screen backup
  */
 
 	.globl	_edata

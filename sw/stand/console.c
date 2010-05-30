@@ -9,7 +9,7 @@
 int
 getchar ()
 {
-        register int c;
+    register int c;
 
 	asm ("mov r5,-(sp)");
 	c = BIOS_GETC();
@@ -77,7 +77,7 @@ printhex (val)
 	val = rol4 (val);
 	phexdigit (val);
 }
-
+/*
 void
 phex8(val)
 {
@@ -88,3 +88,4 @@ phex8(val)
 	val = rol4 (val);
 	phexdigit (val);
 }
+*/

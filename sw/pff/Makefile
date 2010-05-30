@@ -19,7 +19,7 @@ FSUTIL		= u6-fsutil -F
 LDFLAGS		= -X
 
 SRCS		= start.S romstart.S
-OBJS		= pff.o mmc.o spi.o
+OBJS		= pff.o mmc.o spi.o util.o
 PROG		= boot
 
 HIBASE  = 01000
@@ -53,6 +53,11 @@ boot:		romstart.o $(LIBSTAND) libpff.a boot.o
 		pdp11-disasm -a$(HIBASE) $@ > $@.dis
 		pdp11-bkbin -a$(HIBASE) $@
 		pdp11-bkbin -b -a$(HIBASE) $@
+
+doc:
+		doxygen Doxyfile
+
+
 
 .c.s:
 		$(CC) $(CFLAGS) $(CPPFLAGS) -S $<

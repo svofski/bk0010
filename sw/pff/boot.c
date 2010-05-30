@@ -1,4 +1,5 @@
 #include <ansidecl.h>
+#include "util.h"
 #include "diskio.h"
 #include "pff.h"
 
@@ -6,21 +7,28 @@ FATFS fatfs;
 DIR dir;
 FILINFO fno;
 
-#define SYSREG *((unsigned int*)0177716)
+#define SYSREG *((unsigned int*)0177716)    /*!< BK-0010 system control reg */
 
-void xmit() {}
+void xmit() {}  /*!< needed by mmc.c streaming feature, unused */
 
-static char* M_FAIL = "\007Fail";
-static char* M_OK   = "\007OK";
+static char* M_FAIL = "\007Fail";   /*!< Failmessage */
+static char* M_OK   = "\007OK";     /*!< Winmessage */
 
-static char fname[] = "BK0010/100000.ROM\0XXXXXXXXXXXX";
-#define FNBUFL 30
 
-char lastfile[14];
+static char fname[] = "BK0010/100000.ROM\0XXXXXXXXXXXX";  /*!< file name buffer */
+#define FNBUFL 30                                         /*!< file name buffer size */
 
-unsigned char buffer[512];
+char lastfile[14];              /*!< last valid file for tab completion */
 
-unsigned char* romptr = (unsigned char *)0100000;
+unsigned char buffer[512];      /*!< disk i/o buffer */
+
+unsigned char* romptr = (unsigned char *)0100000; /*!< rom will be read here */
+
+/*! BIN file header */
+struct binhdr {
+    unsigned start;             /*!< load location */
+    unsigned length;            /*!< file length   */
+};
 
 #if DEBUG
 #define debug(x)    puts(x)
@@ -28,6 +36,9 @@ unsigned char* romptr = (unsigned char *)0100000;
 #define debug(x)    {}
 #endif
 
+/**
+ * Bootstrap Phase 1. Mount FS, find ROM and open it.
+ */
 int findrom()
 {
     int i;
@@ -42,8 +53,6 @@ int findrom()
         *romptr = 0xac;
 
         if (pf_open(fname) == FR_OK) {
-            /*pf_read(romptr, 32752, &i);*/
-
             return 0;
         }
     }
@@ -51,27 +60,26 @@ int findrom()
 	return 1;
 }
 
+/** 
+ * Bootstrap Phase 2. Load the ROM.
+ */
 int loadrom() {
     int i;
     return pf_read(romptr, 32752, &i) != FR_OK;
 }
 
+/**
+ * Load bin-file to virtual addresses 0120000-0157777
+ */
 int loadbin() {
     int n;
-    unsigned length;
-    unsigned char *ptr;
-    unsigned char cbuf[4];
+    struct binhdr hdr;
 
     for(n = 3; --n > 0 && pf_open(fname) != FR_OK;);
 
     if (n) {
-        if (pf_read(cbuf, 4, &n) == FR_OK) {
-            ptr = (unsigned char *) LD_WORD(cbuf) + 0120000;
-            /*ptr += 0120000;*/
-
-            length = (unsigned) LD_WORD(cbuf+2);
-
-            if (pf_read(ptr, length, &n) == FR_OK) {
+        if (pf_read(&hdr, sizeof(hdr), &n) == FR_OK) {
+            if (pf_read( (unsigned char *) hdr.start + 0120000, hdr.length, &n) == FR_OK) {
                 return 1;
             }
         }
@@ -80,33 +88,10 @@ int loadbin() {
     return 0;
 }
 
-#define abs(x) ((x) > 0 ? (x):-(x))
-
-void pputs(s, width)
-char *s;
-int width;
-{
-    int slen = strlen(s);
-    int pad;
-
-    puts(s);
-    for (pad = width - slen; --pad >= 0;) putchar(' ');
-}
-
-/* Return true if s1 is a prefix of s2 */
-int strprefx(s1,s2) 
-char *s1, *s2;
-{
-   for (;*s1 == *s2; s1++,s2++);
-   return *s1 == 0;
-}
-
-void strcpy(s1,s2) 
-char *s1, *s2;
-{
-    for (;*s1++ = *s2++;);
-}
-
+/** 
+ * List all files with names starting with (fname+7).
+ * If there is only one matching file, copy its full name into (fname+7).
+ */
 int listdir() {
     FRESULT r;
     int i;
@@ -131,6 +116,10 @@ int listdir() {
     return -1;
 }
 
+/** 
+ * ScrollLock entry point.
+ * Prompt for file name, list directory and load bin file.
+ */
 void kenter() {
     int c;
     int i;
@@ -142,13 +131,13 @@ void kenter() {
 
         puts("\nFile:"); puts(fname+7);
         for (; i < FNBUFL && ((c = toupper(getchar())) != '\n'); ) {
-            if (c == 030) {
+            if (c == 030) {             /* Backspace/DEL */
                 if (i > 7) { 
                     --i; 
                 } else {
                     continue;
                 }
-            } else if (c == 011) {
+            } else if (c == 011) {      /* TAB (see below and listdir()) */
                 break;
             } else {
                 fname[i++] = c;

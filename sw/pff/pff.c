@@ -23,23 +23,6 @@
 #include "pff.h"		/* Petit FatFs configurations and declarations */
 #include "diskio.h"		/* Declarations of low level disk I/O functions */
 
-int toupper(c)
-int c;
-{
-    if (IsLower(c)) c -= 0x20; /* toupper */
-    return c;
-}
-
-#ifdef PRINTQ
-void printq(q,cr)
-DWORD q;
-int cr;
-{
-    printhex((WORD)(q>>16)); printhex((WORD)q); 
-    if (cr) puts("\n");
-}
-#endif
-
 /*--------------------------------------------------------------------------
 
    Private Functions
@@ -345,7 +328,6 @@ const char **path;
 			sfn[i++] = c;
 			sfn[i++] = d;
 		} else {						/* Single byte code */
-			/* if (IsLower(c)) c -= 0x20;*/	/* toupper */
 			sfn[i++] = toupper(c);
 		}
 	}
