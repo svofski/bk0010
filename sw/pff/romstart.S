@@ -96,12 +96,35 @@ mmuinit:
 helo:                   / display happy icon
     mov $060140, r0
     mov $_ohai, r1
-    mov $10, r3
-1:  mov (r1),(r0)
-    add $0100, r0
-    mov (r1)+,(r0)
-    add $0100, r0
-    sob r3, 1b
+    mov $10, r2
+/1:  mov (r1),(r0)
+/    add $0100, r0
+/    mov (r1)+,(r0)
+/    add $0100, r0
+1:
+    mov (r1)+,r3
+    clr r4
+
+    mov $15, r5
+2:
+    ror r3
+    ror r4
+    clc
+    bpl 4f
+    sec
+4:
+    ror r4
+    bit $7, r5
+    bne 3f
+    mov r4, 0100(r0)
+    mov r4, (r0)+
+3:
+    dec r5
+    bpl 2b
+
+    add $0174, r0
+
+    sob r2, 1b
 
 themain:
     / call main and make it return into 01000-space

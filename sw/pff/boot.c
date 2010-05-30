@@ -121,21 +121,24 @@ void kenter() {
     int c;
     int i = 7;
 
-    puts("\nFile name: ");
-    for (i = 7; 
-         i < FNBUFL && ((c = getchar()) != '\n'); 
-         fname[i] = c, 
-         i += (c != 030) ? 1 : i > 7 ? -1 : 0,
-         putchar(c));
+    for(;;) {
+        puts("\nFile name: ");
+        for (i = 7; 
+             i < FNBUFL && ((c = getchar()) != '\n'); 
+             fname[i] = c, 
+             i += (c != 030) ? 1 : i > 7 ? -1 : 0,
+             putchar(c));
 
-    fname[i] = '\0';
+        fname[i] = '\0';
 
-    if (i == 7) {
-        puts("\nDirectory:\n");
-        if(listdir()) puts("Fail");
-    } else {
-        puts("\nLoading "); puts(fname); puts(" ...");
-        puts(loadbin() ? "Ok" : "Fail");
+        if (i == 7) {
+            puts("\nDirectory:\n");
+            if(listdir()) puts("Fail");
+        } else {
+            puts("\nLoading "); puts(fname); puts(" ...");
+            puts(loadbin() ? "Ok" : "Fail");
+            break;
+        }
     }
 
     putchar('\n');
