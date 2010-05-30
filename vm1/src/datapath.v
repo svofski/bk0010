@@ -250,7 +250,7 @@ always @(posedge clk or negedge reset_n)
         endcase
     end
 
-always @(posedge clk) begin
+always @(posedge clk or negedge reset_n) begin
     if (~reset_n) begin
         usermode <= 0;
     end else if (ce) begin
@@ -262,11 +262,10 @@ always @(posedge clk) begin
 end
 
 // @ ps
-always @(posedge clk) 
+always @(posedge clk or negedge reset_n) 
     if (~reset_n) begin
         prio <= 0;
         trapbit <= 0;
-        //usermode <= 0;
     end else if (ce) begin
         case (1'b1) // synopsys parallel_case
         ctrl[`DBIPS],

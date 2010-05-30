@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "bootico.h"
+//#include "bootico.h"
 
 #define NLAYERS 1
 #define NAME "gorilla"
