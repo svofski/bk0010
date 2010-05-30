@@ -10,7 +10,7 @@
 
 `include "instr.h"
 
-module datapath(clk, ce, clkdbi, cedbi, reset_n, dbi, din_active, dbo, dba, opcode, psw, ctrl, alucc, taken, PC, ALU1, ALUOUT, SRC, DST, Rtest);
+module datapath(clk, ce, clkdbi, cedbi, reset_n, dbi, din_active, dbo, dba, opcode, psw, ctrl, alucc, taken, PC, ALU1, ALUOUT, SRC, DST, usermode_i, Rtest);
 input           clk, ce, clkdbi, cedbi, reset_n;
 input   [15:0]  dbi;
 input           din_active; // needed to select between registered/direct inputs
@@ -27,6 +27,7 @@ output          taken;
 output [15:0]   PC;
 output [15:0]   ALU1, SRC, DST;
 output [15:0]   ALUOUT;
+input           usermode_i;
 output [143:0]  Rtest;
 
 assign Rtest[15:0]      = R[0];
@@ -41,11 +42,11 @@ assign Rtest[143:128]   = psw;
 
 assign ALUOUT = alu_out;
 
-
-reg  [15:0] R[0:7];
+// only uSP is real in the second bank
+reg  [15:0] R[0:15];
 
 wire [15:0] PC = R[7];
-wire [15:0] SP = R[6];
+wire [15:0] SP = R[{usermode,3'o6}];
 
 reg         OPC_BYTE;
 reg  [14:0] OPC;
@@ -56,13 +57,14 @@ reg  [15:0] ADR;
 reg  [15:0] ALU1, ALU2;
 reg  [15:0] REGsel;
 
+reg         usermode;
 reg  [2:0]  prio;
 reg         trapbit;
 reg         fn, fz, fv, fc;
 
 assign  opcode = {OPC_BYTE,OPC};
 
-assign  psw = {prio,trapbit,fn,fz,fv,fc};
+assign  psw = {usermode,usermode,6'b000000,prio,trapbit,fn,fz,fv,fc};
 
 
 reg taken; // latch
@@ -98,8 +100,8 @@ always @* case (1'b1) // synopsys parallel_case
     ctrl[`DSTALU1]:     ALU1 <= DST;
     ctrl[`SRCALU1]:     ALU1 <= SRC;
     ctrl[`SELALU1]:     ALU1 <= REGsel;
-    ctrl[`PSWALU1]:     ALU1 <= psw;
-    default:            ALU1 <= 16'b0; // unsure
+    ctrl[`PSWALU1]:     ALU1 <= {8'b0,psw[7:0]}; // don't expose usermode to BK software
+    default:            ALU1 <= 16'b0; 
     endcase
 
 // = ALU2
@@ -108,15 +110,15 @@ always @* case (1'b1) // synopsys parallel_case
     ctrl[`SRCALU2]: ALU2 <= SRC;
     ctrl[`OFS8ALU2]: ALU2 <= { {7{opcode[7]}}, opcode[7:0], 1'b0};
     ctrl[`OFS6ALU2]: ALU2 <= { opcode[5:0], 1'b0 };
-    default:        ALU2 <= 16'b0;  // unsure
+    default:        ALU2 <= 16'b0;  
     endcase
     
 // = REGsel 
 always @*
     case (1'b1) 
-    ctrl[`REGSEL]:  begin REGsel <= R[OPC[2:0]]; /*$strobe("REGsel=R[%d]", OPC[2:0]);*/ end
-    ctrl[`REGSEL2]: REGsel <= R[OPC[8:6]];
-    default:        REGsel <= 16'b0; // unsure
+    ctrl[`REGSEL]:  REGsel <= R[{(OPC[2:0] == 6) & usermode,OPC[2:0]}];  
+    ctrl[`REGSEL2]: REGsel <= R[{(OPC[8:6] == 6) & usermode,OPC[8:6]}];
+    default:        REGsel <= 16'b0; 
     endcase
 
 // = REGin
@@ -126,18 +128,18 @@ always @* case (1'b1)
     ctrl[`SRCREG]:  REGin <= SRC;
     ctrl[`ADRREG]:  REGin <= ADR;
     ctrl[`PCREG]:   REGin <= R[7];
-    ctrl[`DBIREG]:  begin REGin <= dbi_r; /* $display("REGin=%o", dbi_r); */ end
-    default:        REGin <= 16'b0; // unsure
+    ctrl[`DBIREG]:  REGin <= dbi_r; 
+    default:        REGin <= 16'b0; 
     endcase
 
 // = dba
 always @* case (1'b1) // synopsys parallel_case
     ctrl[`DBAPC]:   dba <= PC;
     ctrl[`DBASP]:   dba <= SP;
-    ctrl[`DBADST]:  begin dba <= DST; /*$display("DBADST %o", DST); */ end
+    ctrl[`DBADST]:  dba <= DST; 
     ctrl[`DBASRC]:  dba <= SRC;
     ctrl[`DBAADR]:  dba <= ADR;
-    default:        begin dba <= 16'h0; /* $display("DBA default");*/ end // a must
+    default:        dba <= 16'h0; 
     endcase
 
 // = dbo
@@ -146,7 +148,7 @@ always @* case (1'b1) // synopsys parallel_case
     ctrl[`DBODST]:  dbo <= DST;
     ctrl[`DBOSRC]:  dbo <= SRC;
     ctrl[`DBOADR]:  dbo <= ADR; 
-    default:        dbo <= 16'b0; // unsure
+    default:        dbo <= 16'b0; 
     endcase
     
 // @ opcode
@@ -191,16 +193,16 @@ always @(posedge clk or negedge reset_n)
 `endif
     end else 
     if (ce) begin
-        if (ctrl[`ALUPC])   begin R[7] <= alu_out; /*$display("alu1=%o inc2=%o alu_out=%o", ALU1, ctrl[`INC2], alu_out);*/ end
+        if (ctrl[`ALUPC])   R[7] <= alu_out; 
         if (ctrl[`DBIPC])   R[7] <= dbi_r;
-        if (ctrl[`SETPCROM])begin R[7] <= 16'o 100000; end
+        if (ctrl[`SETPCROM]) R[7] <= 16'o 100000; 
         if (ctrl[`FPPC])    R[7] <= R[5];
         if (ctrl[`SELPC])   R[7] <= REGsel;
-        if (ctrl[`ADRPC])   begin R[7] <= ADR; /*$display("ADRPC: PC=%o", ADR);*/ end
-        if (ctrl[`ALUSP])   R[6] <= alu_out;
+        if (ctrl[`ADRPC])   R[7] <= ADR; 
+        if (ctrl[`ALUSP])   R[{usermode,3'o6}] <= alu_out;
         if (ctrl[`DBIFP])   R[5] <= dbi_r;
-        if (ctrl[`SETREG])  R[OPC[2:0]] <= REGin;
-        if (ctrl[`SETREG2]) R[OPC[8:6]] <= REGin;
+        if (ctrl[`SETREG])  R[{(OPC[2:0] == 6) & usermode,OPC[2:0]}] <= REGin; // selects user/kernel SP
+        if (ctrl[`SETREG2]) R[{(OPC[8:6] == 6) & usermode,OPC[8:6]}] <= REGin; // selects user/kernel SP
         
     end
     
@@ -215,14 +217,14 @@ always @(posedge clk or negedge reset_n)
     else if (ce) begin
         case (1'b1) // synopsis parallel_case
         ctrl[`SELADR]:  ADR <= REGsel;
-        ctrl[`DSTADR]:  begin ADR <= DST; /* $display("DSTADR: ADR=%o", DST); */ end
+        ctrl[`DSTADR]:  ADR <= DST; 
         ctrl[`SRCADR]:  ADR <= SRC;
         ctrl[`CLRADR]:  ADR <= 0;
         endcase
         
         if (ctrl[`SAVE_STAT]) begin
                 ADR <= PC;
-                DST <= psw;
+                DST <= {8'b0,psw[7:0]}; // don't expose usermode to BK software
             end
             
         case (1'b1) // synopsis parallel_case
@@ -248,16 +250,27 @@ always @(posedge clk or negedge reset_n)
         endcase
     end
 
+always @(posedge clk or negedge reset_n) begin
+    if (~reset_n) begin
+        usermode <= 0;
+    end else if (ce) begin
+        case (1'b1)
+        ctrl[`MODEIN]:
+            usermode <= usermode_i;
+        endcase
+    end
+end
+
 // @ ps
-always @(posedge clk) 
+always @(posedge clk or negedge reset_n) 
     if (~reset_n) begin
         prio <= 0;
         trapbit <= 0;
     end else if (ce) begin
         case (1'b1) // synopsys parallel_case
-        ctrl[`DBIPS],   
+        ctrl[`DBIPS],
         ctrl[`VECTORPS]:
-            {prio,trapbit,fn,fz,fv,fc} <= dbi_r[7:0];
+                {prio,trapbit,fn,fz,fv,fc} <= dbi_r[7:0];
             
         ctrl[`DSTPSW]:
             {prio,fn,fz,fv,fc} <= {DST[7:5],DST[3:0]};

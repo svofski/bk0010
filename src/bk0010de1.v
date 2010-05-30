@@ -209,6 +209,11 @@ bk0010 elektronika(
         .greenleds(LEDg),
         .switch(SW[7:0]),
 
+        .SD_DAT(SD_DAT),
+        .SD_DAT3(SD_DAT3),
+        .SD_CMD(SD_CMD),
+        .SD_CLK(SD_CLK),
+
         .iTCK(TCK),
         .oTDO(TDO),
         .iTDI(TDI),
@@ -222,11 +227,11 @@ bk0010 elektronika(
         .ram_we_n(SRAM_WE_N),
         .ram_oe_n(SRAM_OE_N),
 
-        .RED(VGA_R[3]),
-        .GREEN(VGA_G[3]),
-        .BLUE(VGA_B[3]),
-        .vs(VGA_VS),
-        .hs(VGA_HS),
+        .VGA_RED(VGA_R[3]),
+        .VGA_GREEN(VGA_G[3]),
+        .VGA_BLUE(VGA_B[3]),
+        .VGA_VS(VGA_VS),
+        .VGA_HS(VGA_HS),
         
         .tape_out(tape_out),
         .tape_in(tape_in),
