@@ -19,7 +19,8 @@
  */
 
 	.globl	_edata
-	.globl	_main
+	.globl	_findrom
+    .globl  _loadrom
     .globl  _kenter
     .globl _printhex
 
@@ -32,11 +33,20 @@
     MMUCTL = 0177700
 
 	.data
-_spsave: .word 0
+_spsave:    .word 0
+_rollsave:  .word 0
 
     / startup icon
 _ohai:
-    .word 0037777,0060001,0102235,0161205,0100635,0161245,0102245,0162235,0100001,0177777
+    .word 0037777,0060001,0102235,0161205,0100635
+    .word 0161245,0102245,0162235,0100001,0177777
+_boobad:
+    .word 0037777,0060001,0100001,0160501,0100501
+    .word 0160001,0101741,0162021,0100001,0177777
+_bootok:
+    .word 0037777,0060001,0100001,0160501,0100501
+    .word 0160001,0102021,0161741,0100001,0177777
+
 
 /-----------------------
 / System starts here.
@@ -93,45 +103,25 @@ mmuinit:
 
 	mov	r0,sp			/ set up kernel stack pointer
 
-helo:                   / display happy icon
-    mov $060140, r0
+helo:                   / display boot icon
     mov $_ohai, r1
-    mov $10, r2
-/1:  mov (r1),(r0)
-/    add $0100, r0
-/    mov (r1)+,(r0)
-/    add $0100, r0
-1:
-    mov (r1)+,r3
-    clr r4
-
-    mov $15, r5
-2:
-    ror r3
-    ror r4
-    clc
-    bpl 4f
-    sec
-4:
-    ror r4
-    bit $7, r5
-    bne 3f
-    mov r4, 0100(r0)
-    mov r4, (r0)+
-3:
-    dec r5
-    bpl 2b
-
-    add $0174, r0
-
-    sob r2, 1b
+    jsr pc, dispico
 
 themain:
     / call main and make it return into 01000-space
     mov $Lret, r0
-    jsr r0, *$_main
+    jsr r0, *$_findrom
 
 Lret:
+    tst r0
+    bne fatal
+
+    jsr pc, _happyico
+
+    jsr pc, *$_loadrom
+    tst r0
+    bne fatal
+
     / this will execute in 01000-space after return from main
     / disable shadow 
     bic $1, *$MMUCTL
@@ -162,7 +152,6 @@ _vinst2:
   
 _abort:
     mov *$_spsave, sp
-1:  br .
     jmp _restore
 
 _kkirq:
@@ -221,6 +210,8 @@ _restore:
     rti
 
 _scrprep:
+    mov *$0177664, *$_rollsave    / save scroll position
+
     mov $0102400, *$KISA+10      / map 0100000v, rw 0240000p to 
     mov $0102600, *$KISA+12      / map 0120000v, rw 0260000p to 
 
@@ -233,6 +224,8 @@ _scrcopy:
     rts pc
 
 _scrrest:
+    mov *$_rollsave, *$0177664    / restore scroll position
+
     mov $0002400, *$KISA+10      / map 0240000p to 0120000v, ro
     mov $0002600, *$KISA+12      / map 0260000p to 0100000v, ro
 
@@ -240,8 +233,48 @@ _scrrest:
     mov  $040000,  r2
     br  _scrcopy
 
-_pause:
-    mov $4096, r0
-1:  sob r0, .
+fatal:
+    mov $_boobad, r1
+    jsr pc, dispico
+    br .
 
+_pause:
+    mov $0177777, r0
+1:  tst $0
+    sob r0, 1b
+    rts pc
+
+_happyico:
+    mov $_bootok, r1
+    jmp dispico
+
+    / display a fattened up icon in the middle of screen
+    / r1 - pointer to 10 words of icon data
+dispico:
+    mov $060140, r0
+    mov $10, r2
+1:
+    mov (r1)+,r3
+    clr r4
+
+    mov $15, r5
+2:
+    ror r3
+    ror r4
+    clc
+    bpl 4f
+    sec
+4:
+    ror r4
+    bit $7, r5
+    bne 3f
+    mov r4, 0100(r0)
+    mov r4, (r0)+
+3:
+    dec r5
+    bpl 2b
+
+    add $0174, r0
+    sob r2, 1b
+    rts pc
 

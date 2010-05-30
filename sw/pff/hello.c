@@ -1,3 +1,5 @@
+#define PRINTQ 
+
 #include <ansidecl.h>
 #include "diskio.h"
 #include "pff.h"

@@ -20,7 +20,7 @@ LDFLAGS		= -X
 
 SRCS		= start.S romstart.S
 OBJS		= pff.o mmc.o spi.o
-PROG		= hello boot
+PROG		= boot
 
 HIBASE  = 01000
 TOPSYS  = 040000
