@@ -21,7 +21,7 @@ module bkcore(
         input               reply_i,        // memory reply
         input       [15:0]  ram_data_i,     // data from ram 
         output reg  [15:0]  ram_data_o,     // data to ram
-        output      [16:0]  adr,            // address 
+        output      [17:0]  adr,            // address 
         output              byte,           // byte access
         output              ifetch,         // instruction fetch cycle
         
