@@ -198,7 +198,8 @@ parameter
     USRREG = 4,
     MMUREGS = 5,
     MMUCTRL = 6,
-    LASTREGSEL = 6;
+    TIMERREGS = 7,
+    LASTREGSEL = 7;
     
 wire        [LASTREGSEL:0] regsel;
 
@@ -208,11 +209,12 @@ assign regsel[ROLL]      = (_cpu_adrs[6:0] == 'o064);
 assign regsel[INITREG]   = (_cpu_adrs[6:0] == 'o116);
 assign regsel[USRREG]    = (_cpu_adrs[6:0] == 'o114);
 assign regsel[MMUREGS]   = (_cpu_adrs[6:5] == 2'b00) & ~cpu_mode;
-assign regsel[MMUCTRL]   = (_cpu_adrs[6:0] == 'o100) & ~cpu_mode;   
+assign regsel[MMUCTRL]   = (_cpu_adrs[6:0] == 'o100) & ~cpu_mode;
+assign regsel[TIMERREGS] = (_cpu_adrs[6:0] == 'o106 || _cpu_adrs[6:0] == 'o110 || _cpu_adrs[6:0] == 'o112); 
 
 wire   bad_reg = ~|regsel;
 
-assign read_kbd = regsel[KBD_DATA];
+assign read_kbd = _cpu_rd & reg_space & regsel[KBD_DATA] ;
 assign _cpu_error = bad_addr | (ifetch & stopkey);
 
    
@@ -300,6 +302,7 @@ always @* begin: _databus_selector
             regsel[USRREG]:     databus_in = cpu_mode ? 16'o0 : {~spi_dsr, spi_di};      // this could be a joystick...
             regsel[MMUREGS]:    databus_in = data_from_mmu;
             regsel[MMUCTRL]:    databus_in = {cpu_mode,cpumode_req,mmu_enabled,shadowmode};
+            regsel[TIMERREGS]:  databus_in = data_from_timer;
         endcase
         
     ~reg_space:
@@ -336,6 +339,18 @@ memmap mmu(
     .vaddr(_cpu_adrs),
     .phaddr(physical_addr),
 );
+
+wire [15:0] data_from_timer;
+vptimer timenik(
+    .clk(clk),
+    .ce(ce),
+    .reset_n(reset_n),
+    .regwr(_cpu_wt & reg_space & regsel[TIMERREGS]),
+    .regrd(_cpu_rd & reg_space & regsel[TIMERREGS]),
+    .addr(_cpu_adrs[3:0]),
+    .data_i(data_from_cpu),
+    .data_o(data_from_timer),
+);    
 
 
 endmodule
