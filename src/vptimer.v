@@ -18,16 +18,14 @@ reg [15:0] counter_load;
 
 parameter STOP = 0,
           WRAPAROUND = 1,
-          STOPENABLE = 2,
+          EXPENABLE = 2,
           ONESHOT = 3,
           RUN = 4,
           DIV16 = 5,
           DIV4 = 6,
-          DONE = 7;
+          EXPIRY = 7;
 
-reg [6:0]  control;
-reg        readybit;
-
+reg [7:0]  control;
 
 wire sel_reload  = addr == 4'o06;
 wire sel_counter = addr == 4'o10;
@@ -48,7 +46,7 @@ always @(posedge clk or negedge reset_n)
             case (1'b1)
             sel_reload:     data_o <= counter_reload;
             sel_counter:    data_o <= counter;
-            sel_control:    data_o <= {8'hff, 1'b0 & readybit, control};
+            sel_control:    data_o <= {8'hff, control};
             endcase
         end
     end
@@ -75,28 +73,22 @@ always @*
     
 always @(posedge clk or negedge reset_n)
     if (~reset_n) begin
-        readybit <= 1'b0;
         counter <= 0;
         control <= 0;
     end
     else if (ce & sel_control & regwr) begin
-        control <= data_i[6:0];
+        control <= data_i[7:0];
         if (data_i[RUN]) counter <= counter_reload;
-    end
-    else if (ce & sel_control & regrd) begin
-        readybit <= 1'b0;
     end
     else if (~control[STOP] & control[RUN]) begin
         if (tick & tock) begin
             if (counter == 0 && ~control[WRAPAROUND]) begin
                 counter <= (~|counter_reload) ? 16'o177777 : counter_reload;
-                control[RUN] <= ~control[ONESHOT]; // oneshot counts to 0, resets and resets RUN bit
+                control[RUN] <= ~control[ONESHOT]; // oneshot counts to 0 and clears the RUN bit
+                control[EXPIRY] <= control[EXPENABLE];
             end
             else begin
                 counter <= counter - 1'b1;
-                if (counter - 1'b1 == 0) begin
-                    readybit <= 1'b1;
-                end
             end
         end
     end else begin
