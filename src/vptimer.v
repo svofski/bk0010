@@ -17,7 +17,7 @@ reg [15:0] counter_load;
 
 
 parameter STOP = 0,
-          INIT = 1,
+          WRAPAROUND = 1,
           STOPENABLE = 2,
           ONESHOT = 3,
           RUN = 4,
@@ -36,21 +36,19 @@ wire sel_control = addr == 4'o12;
 
 always @(posedge clk or negedge reset_n)
     if (~reset_n) begin
-        control <= 0;
         counter_reload <= 0;
     end
     else if (ce) begin
         if (regwr) begin
             case (1'b1) 
             sel_reload:     counter_reload <= data_i;
-            sel_control:    control <= data_i[6:0];
             endcase
         end 
         else if (regrd) begin
             case (1'b1)
             sel_reload:     data_o <= counter_reload;
             sel_counter:    data_o <= counter;
-            sel_control:    data_o <= {8'hff, readybit, control};
+            sel_control:    data_o <= {8'hff, 1'b0 & readybit, control};
             endcase
         end
     end
@@ -79,17 +77,21 @@ always @(posedge clk or negedge reset_n)
     if (~reset_n) begin
         readybit <= 1'b0;
         counter <= 0;
+        control <= 0;
     end
-    else if (ce & sel_counter & regwr) begin
-        counter <= data_i;
-    end 
+    else if (ce & sel_control & regwr) begin
+        control <= data_i[6:0];
+        if (data_i[RUN]) counter <= counter_reload;
+    end
     else if (ce & sel_control & regrd) begin
         readybit <= 1'b0;
     end
-    else if (~control[STOP]) begin
+    else if (~control[STOP] & control[RUN]) begin
         if (tick & tock) begin
-            if (counter == 0) 
-                counter <= control[ONESHOT] ? 0 : (counter_reload - 1);
+            if (counter == 0 && ~control[WRAPAROUND]) begin
+                counter <= (~|counter_reload) ? 16'o177777 : counter_reload;
+                control[RUN] <= ~control[ONESHOT]; // oneshot counts to 0, resets and resets RUN bit
+            end
             else begin
                 counter <= counter - 1'b1;
                 if (counter - 1'b1 == 0) begin
@@ -97,6 +99,8 @@ always @(posedge clk or negedge reset_n)
                 end
             end
         end
+    end else begin
+        counter <= counter_reload;
     end
 
 endmodule
