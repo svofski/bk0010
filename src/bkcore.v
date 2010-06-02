@@ -203,14 +203,18 @@ parameter
     
 wire        [LASTREGSEL:0] regsel;
 
-assign regsel[KBD_STATE] = (_cpu_adrs[6:0] == 'o060);
-assign regsel[KBD_DATA]  = (_cpu_adrs[6:0] == 'o062);
-assign regsel[ROLL]      = (_cpu_adrs[6:0] == 'o064);
-assign regsel[INITREG]   = (_cpu_adrs[6:0] == 'o116);
-assign regsel[USRREG]    = (_cpu_adrs[6:0] == 'o114);
+wire [6:0] evenreg = {_cpu_adrs[6:1],1'b0};
+
+assign regsel[KBD_STATE] = (evenreg == 'o060);
+assign regsel[KBD_DATA]  = (evenreg == 'o062);
+assign regsel[ROLL]      = (evenreg == 'o064);
+assign regsel[INITREG]   = (evenreg == 'o116);
+assign regsel[USRREG]    = (evenreg == 'o114);
+assign regsel[TIMERREGS] = (evenreg == 'o106 || evenreg == 'o110 || evenreg == 'o112); 
+
 assign regsel[MMUREGS]   = (_cpu_adrs[6:5] == 2'b00) & ~cpu_mode;
 assign regsel[MMUCTRL]   = (_cpu_adrs[6:0] == 'o100) & ~cpu_mode;
-assign regsel[TIMERREGS] = (_cpu_adrs[6:0] == 'o106 || _cpu_adrs[6:0] == 'o110 || _cpu_adrs[6:0] == 'o112); 
+
 
 wire   bad_reg = ~|regsel;
 
