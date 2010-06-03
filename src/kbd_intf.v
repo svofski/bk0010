@@ -64,7 +64,7 @@ wire scan_alt   = Scan_Code == 8'h11;
 wire scan_stop  = Scan_Code == 8'h07;   // F12 = STOP
 wire scan_super = Scan_Code == 8'h7e;   // ScrollLock = SUPER/ Loader mode
 
-always @(posedge mclk25 ) begin 
+always @(posedge mclk25 or posedge reset_in) begin 
     if(reset_in) begin
         shift <= 0;
         ctrl <= 0;

@@ -267,10 +267,10 @@ end
 
 reg [15:0] debctr;
 reg        debsamp;
-always @(posedge clk25) begin
+always @(posedge clk25 or posedge RST_IN) begin
     if (RST_IN) begin
-        hypercharge <= 0;
         debsamp <= 0;
+        debctr <= 0;
     end else begin
         if (~KEY[3])    
             debctr <= 16'hffff;

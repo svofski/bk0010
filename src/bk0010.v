@@ -81,7 +81,6 @@ wire            usb_a_lb;
 wire            usb_a_ub;
 wire            usb_we_n;
 wire            usb_oe_n;           // 0= ram data output to usb
-reg [1:0]       usb_clk;
 
 wire[12:0]      vga_addr;
 reg [15:0]      data_to_interface;
@@ -94,7 +93,7 @@ wire            kbd_available;
 wire [143:0]    cpu_registers;
 
 
-reg [23:0]      cntr;               // slow counter for heartbeat LED
+reg [23:0]      heartbeat_cntr;     // slow counter for heartbeat LED
 
 wire            b0_debounced;
 //wire          stop_run;
@@ -138,12 +137,24 @@ always @(posedge clk_cpu or negedge ~reset_in)
 `endif
 
 
+reg [4:0] tru_adjuster;
+always @(posedge clk_cpu) begin
+    if ({hypercharge_i,cpu_pause_n,screen_x[3:0]} == 6'b010101) begin
+        if (tru_adjuster + 1'b1 == 11)
+            tru_adjuster <= 0;
+        else
+            tru_adjuster <= tru_adjuster + 1'b1;
+    end
+end
+
+wire tru_permit = ~tru_adjuster[3]; // 8 of 11
+
 always @*
     casex({hypercharge_i,cpu_pause_n,screen_x[3:0]}) 
 `ifdef CORE_25MHZ    
     6'b11xxxx:  ce_cpu <= screen_x[3:0] != 4'b1111 && screen_x[3:0] != 4'b1110;
     //6'b11xxxx:  ce_cpu <= |screen_x[3:0] && screen_x[3:0] != 4'b1111 && screen_x[3:0] != 4'b1110;
-    6'b010101:  ce_cpu <= 1;
+    6'b010101:  ce_cpu <= tru_permit;
 `else
     6'b11xxxx:  ce_cpu <= screen_x[3:0] != 4'b1111 && screen_x[3:0] != 0; 
     6'b010101:  ce_cpu <= cediv50;
@@ -158,7 +169,7 @@ assign      ce_shifter_load = screen_x[3:0] == 4'b0000; // seems to contradict w
 assign      ce_shifter_load = screen_x[3:0] == 4'b0000; 
 `endif
 
-assign greenleds = {cpu_rdy, b0_debounced, kbd_available, usb_we_n, ram_we_n, cpu_we_n, cpu_wt, cntr[23]};
+assign greenleds = {cpu_rdy, b0_debounced, kbd_available, usb_we_n, ram_we_n, cpu_we_n, cpu_wt, heartbeat_cntr[20]};
 
 assign cpu_lb = cpu_byte & cpu_adr[0];  // if byte LOW, lb low. If even addr, low too 
 assign cpu_ub = cpu_byte & ~cpu_adr[0];
@@ -179,7 +190,7 @@ always @(posedge clk_cpu)
 
 assign b0_debounced = |debounce_counter;    
 
-always @(posedge clk25) begin
+always @(posedge clk25 or posedge reset_in) begin
     if (reset_in) begin
         jtag_hlda <= 0;
     end 
@@ -220,7 +231,7 @@ end
 
 reg breakpoint_latch;
 
-always @(negedge clk_cpu) begin
+always @(negedge clk_cpu or posedge reset_in) begin
     if (reset_in) begin
         breakpoint_latch <= 1'b0;
     end else 
@@ -240,7 +251,7 @@ end
 
 
 // vga state machine runs on 50 MHz clock
-always @(posedge clk50) begin
+always @(posedge clk50 or posedge reset_in) begin
     if(reset_in) 
         vga_state <= 0;
     else begin
@@ -420,14 +431,6 @@ assign      video_access = ce_shifter_load; /* & switch[1]*/  // always read vid
    
 assign      vga_oe_n = ~video_access;
 
-always @(posedge clk25) begin
-    if(reset_in)
-        usb_clk <= 0;
-    else
-        usb_clk <= usb_clk + 1;
-end
-   
-
 wire valid_full = valid && (full_screen || ~|screen_y[8:7]);
 
 always @(posedge clk25) begin
@@ -438,7 +441,7 @@ end
 
 
 always @(posedge clk25) begin
-    cntr <= cntr + 1'b 1;
+    heartbeat_cntr <= heartbeat_cntr + ce_cpu;
 end
 
 kbd_intf kbd_intf (
@@ -464,7 +467,7 @@ wire [7:0]  spi_to_spi;
 wire [7:0]  spi_from_spi;
 
 spi spi1(
-    .clk(clk25),
+    .clk(clk_cpu),
     .ce(1),
     .reset_n(~reset_in),
     .mosi(SD_CMD),

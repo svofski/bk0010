@@ -233,7 +233,22 @@ always @(negedge reset_n) begin
     init_reg_hi  <= 8'b10000000; // CPU start address MSB, not used by POP-11
 end
 
-assign _cpu_irq_in = kbd_available & ~kbdint_enable_n;
+reg kbd_available_samp;
+reg kbd_irq_r;
+
+always @(posedge clk or negedge reset_n) 
+    if (~reset_n) begin
+        {kbd_available_samp,kbd_irq_r} <= 0;
+    end
+    else if (ce) begin
+        kbd_available_samp <= kbd_available;
+        if (kbd_irq_r & _cpu_int_ack) 
+            kbd_irq_r <= 1'b0;
+        else if (~kbd_available_samp & kbd_available) 
+            kbd_irq_r <= 1'b1;
+    end
+
+assign _cpu_irq_in = kbd_irq_r & ~kbdint_enable_n;
 
 // superkey: resets to 0, but only when IAKO
 wire cpumode_req_acked = superkey ? ~_cpu_int_ack : cpumode_req;
