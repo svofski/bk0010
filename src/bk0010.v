@@ -125,6 +125,7 @@ assign      cpu_pause_n = switch[7];
 
 `ifdef CORE_25MHZ    
 assign      clk_cpu   = clk25;
+wire        cediv50   = 1'b1;
 `else
 assign      clk_cpu   = clk50;
 
@@ -445,7 +446,7 @@ always @(posedge clk25) begin
 end
 
 kbd_intf kbd_intf (
-    .mclk25(clk25), 
+    .mclk(clk_cpu), 
     .reset_in(reset_in), 
     .PS2_Clk(PS2_Clk), 
     .PS2_Data(PS2_Data), 
@@ -469,6 +470,7 @@ wire [7:0]  spi_from_spi;
 spi spi1(
     .clk(clk_cpu),
     .ce(1),
+    .spi_ce(cediv50),
     .reset_n(~reset_in),
     .mosi(SD_CMD),
     .miso(SD_DAT),
