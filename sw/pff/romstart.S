@@ -27,7 +27,7 @@
     .globl  _loadrom
     .globl  _kenter
     .globl _printhex
-    .globl _EMTCB
+    .globl _emtCB
 
     KISA = 0177600
     UISA = 0177620
@@ -59,6 +59,7 @@ _bootok:
 	.text
 init:
     / we start in kernel mode, MMU disabled
+    mtps $0200
 
     / clear screen
     mov $040000, r0
@@ -170,13 +171,13 @@ fatal:
 
 _emt:
     add $0120000, r1
-    mov r1, *$_EMTCB    / r1 points to emt control block, save it there
+    mov r1, *$_emtCB    / r1 points to emt control block, save it there
     jsr pc, _kkommon
     sub $0120000, r1    / restore r1
     br  _iret
 
 _kkirq:
-    clr *$_EMTCB        / if EMTCB is NULL, this is ScrollLock
+    clr *$_emtCB        / if emtCB is NULL, this is ScrollLock
     jsr pc, _kkommon
 
 _iret:
