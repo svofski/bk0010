@@ -1,0 +1,11 @@
+This directory contains sources for pdp11-bkbin, a tool to convert 
+pdp-11 a.out files created by BKUNIX dev tools into BK-0010 loadable
+.BIN files.
+
+
+After you have succesfully compiled and installed BKUNIX dev tools,
+run make && make install. It should create pdp11-bkbin executable
+in /usr/local/bin. The utility is equivalent to strip, except that
+it creates .bin files.
+
+-- Viacheslav Slavinsky
