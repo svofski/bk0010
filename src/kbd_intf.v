@@ -11,7 +11,7 @@
 
 `default_nettype none
 
-module kbd_intf(mclk, reset_in, PS2_Clk, PS2_Data, shift, ar2, ascii, kbd_available, read_kb, key_stop, key_super, key_down);
+module kbd_intf(mclk, reset_in, PS2_Clk, PS2_Data, shift, ar2, ascii, kbd_available, read_kb, key_stop, key_super, key_down, ul);
 
 input               mclk, reset_in, read_kb;
 input               PS2_Clk,PS2_Data;
@@ -21,6 +21,7 @@ output              shift, ar2, kbd_available;
 output              key_stop;
 output              key_super;
 output reg          key_down;       // any key is down
+output   [1:0]      ul = {uppercase,lowercase};
 
 reg    [2:0]        kbd_state;  
 reg    [2:0]        kbd_state_next;
@@ -29,6 +30,7 @@ reg                 ctrl;
 reg                 alt;
 reg    [7:0]        code_latched;
 reg                 kbd_available;
+reg                 rus;            // 1 = RUS, 0 = LAT
 
 wire                autoar2;        // AR2 forced by special keys (e.g. POVT)
 output [6:0]        ascii;
@@ -55,8 +57,14 @@ assign  DoRead = Scan_DAV;
 
 kbd_transl kbd_transl( .shift(shift), .incode(code_latched), .outcode(decoded), .autoar2(autoar2)); 
 
+wire lowercase = (decoded > 7'h60) & (decoded <= 7'h7a); 
+wire uppercase = (decoded > 7'h40) & (decoded <= 7'h5a);
 
-assign ascii = ctrl? {2'b0, decoded[4:0]} : decoded;
+assign ascii = ctrl? {2'b0, decoded[4:0]} : 
+               rus ? decoded : 
+               lowercase ? decoded - 7'h20 : 
+               uppercase ? decoded + 7'h20 : decoded; 
+
 
 wire scan_shift = Scan_Code == 8'h12;
 wire scan_ctrl  = Scan_Code == 8'h14;
@@ -106,11 +114,12 @@ assign key_stop = stop_ctr[7:0] != 0 && stop_ctr[15:8] == 0;
 reg [15:0] super_ctr;
 assign key_super = super_ctr[7:0] != 0 && super_ctr[15:8] == 0;
  
-always @(posedge mclk) begin
+always @(posedge mclk or posedge reset_in) begin
     if(reset_in) begin
         kbd_state <= 0;
         code_latched <= 0;
         kbd_available <= 0;
+        rus <= 0;
     end
     else begin
         kbd_state <= kbd_state_next;
@@ -125,6 +134,13 @@ always @(posedge mclk) begin
         end 
         else if (kbd_state == 6) begin
             key_down <= 0;
+        end 
+        else if (kbd_state == 0) begin
+            case (decoded)
+            7'o016: rus <= 1;
+            7'o017: rus <= 0;
+            default:;
+            endcase
         end
     end
 end
