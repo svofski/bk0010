@@ -35,7 +35,7 @@ struct emtcb {
     unsigned start;
     unsigned length;
     char name[20];
-} *EMTCB;
+} *emtCB;
 
 static struct binhdr hdr;
 
@@ -90,7 +90,7 @@ int loadbin() {
 
     if (n) {
         if (pf_read(&hdr, sizeof(hdr), &n) == FR_OK) {
-            if (EMTCB && EMTCB->start) hdr.start = EMTCB->start;
+            if (emtCB && emtCB->start) hdr.start = emtCB->start;
             if (pf_read( (unsigned char *) hdr.start + 0120000, hdr.length, &n) == FR_OK) {
                 if (hdr.length + hdr.start > 16384)
                     return 2;
@@ -140,8 +140,12 @@ int listdir() {
 
 
 /** 
- * ScrollLock entry point.
+ * ScrollLock and EMT36 entry point.
+ *
+ * If emtCB is NULL, this is a ScrollLock handler. 
  * Prompt for file name, list directory and load bin file.
+ *
+ * If emtCB is given, use data from it and skip all interactivity.
  */
 int kenter() {
     int c;
@@ -153,9 +157,9 @@ int kenter() {
     for(;;) {
         for (i = 7; fname[i]; i++);
 
-        if (EMTCB != 0) {
+        if (emtCB) {
             for(c = 0; c < 20;) {
-                if ((fname[i] = EMTCB->name[c++]) == 040) break;
+                if ((fname[i] = emtCB->name[c++]) == 040) break;
                 i++;
             }
             c = 0;
@@ -182,13 +186,14 @@ int kenter() {
 
         if (i == 7 || c == 011) {
             if(listdir()) puts(M_FAIL);
+            if (emtCB) break;           /* avoid eternal loop if requested name is empty */
         } else {
             puts("\nLoading "); puts(fname); puts("...");
             puts((c = loadbin()) ? M_OK : M_FAIL);
-            if(EMTCB) {
-                EMTCB->cmd = 0;
-                EMTCB->start = hdr.start;
-                EMTCB->length = hdr.length;
+            if(emtCB) {
+                emtCB->cmd = 0;         /* Fill in response: 0 = no error (whatever) */
+                emtCB->start = hdr.start;
+                emtCB->length = hdr.length;
             } else {
                 newline();
             }
