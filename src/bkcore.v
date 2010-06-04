@@ -250,7 +250,10 @@ always @(posedge clk or negedge reset_n)
 
 assign _cpu_irq_in = kbd_irq_r & ~kbdint_enable_n;
 
+wire emt36 = cpu_opcode == 16'o104036;
+
 // superkey: resets to 0, but only when IAKO
+// emt36 overrides cpumode_req to kernel mode
 wire cpumode_req_acked = superkey ? ~_cpu_int_ack : cpumode_req;
 
 
@@ -271,7 +274,7 @@ always @(posedge clk or negedge reset_n) begin
             
             if (stopkey) stopkey_latch <= 1'b1;
             
-            if (superkey & _cpu_int_ack) cpumode_req <= 1'b0; // latch kernel mode
+            if ((superkey & _cpu_int_ack) | emt36) cpumode_req <= 1'b0; // latch kernel mode
             
             if (reg_space) begin
                 if(bad_reg)

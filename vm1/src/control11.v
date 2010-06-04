@@ -789,6 +789,7 @@ always @* begin
         TRAP_SVC: begin
                     `dp(`RESET_BYTE); 
                     `dp(`SAVE_STAT);
+                    `dp(`MODEIN);   // set usermode to usermode_i: for EMT hooks
                     next = TRAP_1;
                   end
                 
