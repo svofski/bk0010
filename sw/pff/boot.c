@@ -30,6 +30,16 @@ struct binhdr {
     unsigned length;            /*!< file length   */
 };
 
+struct emtcb {
+    unsigned cmd;
+    unsigned start;
+    unsigned length;
+    char name[20];
+} *EMTCB;
+
+static struct binhdr hdr;
+
+
 #if DEBUG
 #define debug(x)    puts(x)
 #else
@@ -75,12 +85,12 @@ int loadrom() {
  */
 int loadbin() {
     int n;
-    struct binhdr hdr;
 
     for(n = 3; --n > 0 && pf_open(fname) != FR_OK;);
 
     if (n) {
         if (pf_read(&hdr, sizeof(hdr), &n) == FR_OK) {
+            if (EMTCB && EMTCB->start) hdr.start = EMTCB->start;
             if (pf_read( (unsigned char *) hdr.start + 0120000, hdr.length, &n) == FR_OK) {
                 if (hdr.length + hdr.start > 16384)
                     return 2;
@@ -143,20 +153,29 @@ int kenter() {
     for(;;) {
         for (i = 7; fname[i]; i++);
 
-        puts("\025\032File:"); puts(fname+7);
-        for (; i < FNBUFL && ((c = toupper(getchar())) != '\n'); ) {
-            if (c == 030) {             /* Backspace/DEL */
-                if (i > 7) { 
-                    --i; 
-                } else {
-                    continue;
-                }
-            } else if (c == 011) {      /* TAB (see below and listdir()) */
-                break;
-            } else {
-                fname[i++] = c;
+        if (EMTCB != 0) {
+            for(c = 0; c < 20;) {
+                if ((fname[i] = EMTCB->name[c++]) == 040) break;
+                i++;
             }
-            putchar(c);
+            c = 0;
+        }
+        else {
+            puts("\025\032File:"); puts(fname+7);
+            for (; i < FNBUFL && ((c = toupper(getchar())) != '\n'); ) {
+                if (c == 030) {             /* Backspace/DEL */
+                    if (i > 7) { 
+                        --i; 
+                    } else {
+                        continue;
+                    }
+                } else if (c == 011) {      /* TAB (see below and listdir()) */
+                    break;
+                } else {
+                    fname[i++] = c;
+                }
+                putchar(c);
+            }
         }
 
         fname[i] = '\0';
@@ -166,10 +185,16 @@ int kenter() {
         } else {
             puts("\nLoading "); puts(fname); puts("...");
             puts((c = loadbin()) ? M_OK : M_FAIL);
-            newline();
+            if(EMTCB) {
+                EMTCB->cmd = 0;
+                EMTCB->start = hdr.start;
+                EMTCB->length = hdr.length;
+            } else {
+                newline();
+            }
+
             return c == 2;
         }
     }
-    newline();
     return 0;
 }

@@ -27,6 +27,7 @@
     .globl  _loadrom
     .globl  _kenter
     .globl _printhex
+    .globl _EMTCB
 
     KISA = 0177600
     UISA = 0177620
@@ -141,12 +142,16 @@ Lret:
 
     / setup vectors
 _vinst:
+    / emt handler 
+    mov $_emt, *$030
+    mov $0200, *$032
+     
     / keyboard handler for k-mode (060)
     mov $_kkirq, *$060
 _vinst2:
     mov $0200, r0
     mov r0, *$062
-     
+
     mov $_abort, *$04
     mov r0, *$06
 
@@ -158,7 +163,27 @@ _abort:
     mov *$_spsave, sp
     jmp _restore
 
+fatal:
+    mov $_boobad, r1
+    jsr pc, dispico
+    br .
+
+_emt:
+    add $0120000, r1
+    mov r1, *$_EMTCB    / r1 points to emt control block, save it there
+    jsr pc, _kkommon
+    sub $0120000, r1    / restore r1
+    br  _iret
+
 _kkirq:
+    clr *$_EMTCB        / if EMTCB is NULL, this is ScrollLock
+    jsr pc, _kkommon
+
+_iret:
+    bis $4, *$MMUCTL        / kate, we have to go back!
+    rti
+
+_kkommon:
     mov r0,-(sp)
     mov r1,-(sp)
     mov r2,-(sp)
@@ -191,6 +216,8 @@ _kkirq:
     / ready to use bios in kernel mode
 
     jsr pc, _kenter
+
+    clr *$0120300                   / clear 0300 = PROH (error flag)
     
     / test if loaded image used screen area
     / and don't restore display if it did
@@ -198,10 +225,10 @@ _kkirq:
     bne _noclr
 
 _restore:
-    jsr pc, _pause          / pause before restoring..
-    jsr pc, _scrrest        / restore original display
+    jsr pc, _pause                  / pause before restoring..
+    jsr pc, _scrrest                / restore original display
 _noclr:
-    jsr pc, _vinst          / reinstall the initial hook
+    jsr pc, _vinst                  / reinstall the initial hook
 
     mov (sp)+,r5
     mov (sp)+,r4
@@ -210,8 +237,7 @@ _noclr:
     mov (sp)+,r1
     mov (sp)+,r0
 
-    bis $4, *$MMUCTL        / kate, we have to go back!
-    rti
+    rts pc
 
 _scrprep:
     mov *$0177664, *$_rollsave    / save scroll position
@@ -236,11 +262,6 @@ _scrrest:
     mov  $0120000, r1
     mov  $040000,  r2
     br  _scrcopy
-
-fatal:
-    mov $_boobad, r1
-    jsr pc, dispico
-    br .
 
 _pause:
     mov $0177777, r0
