@@ -27,6 +27,8 @@ module bkcore(
         
         output              bootrom_sel,     // boot rom active, rom area writable
         
+        output              cpumode_o,      // o: 0 = kernel, 1 = user
+        
         input               kbd_available,  // i: key available 
         input        [7:0]  kbd_data,       // i: key code
         input               kbd_ar2,        // i: AR2 modifier
@@ -181,6 +183,8 @@ assign  bootrom_sel = shadowmode & _cpu_adrs[15] & ~reg_space;
 
 
 wire     cpu_mode = cpu_psw[15];   // 0 = kernel, 1 = user
+
+assign   cpumode_o = cpu_mode;
 
 reg      cpumode_req; // bit 2 in MMUCTRL, the mode gets set on RTI/RTT or IRQ
 

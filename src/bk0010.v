@@ -140,7 +140,7 @@ always @(posedge clk_cpu or negedge ~reset_in)
 
 reg [4:0] tru_adjuster;
 always @(posedge clk_cpu) begin
-    if ({hypercharge_i,cpu_pause_n,screen_x[3:0]} == 6'b010101) begin
+    if ({hypercharge_i|~cpumode,cpu_pause_n,screen_x[3:0]} == 6'b010101) begin
         if (tru_adjuster + 1'b1 == 11)
             tru_adjuster <= 0;
         else
@@ -151,7 +151,7 @@ end
 wire tru_permit = ~tru_adjuster[3]; // 8 of 11
 
 always @*
-    casex({hypercharge_i,cpu_pause_n,screen_x[3:0]}) 
+    casex({hypercharge_i|~cpumode,cpu_pause_n,screen_x[3:0]}) 
 `ifdef CORE_25MHZ    
     6'b11xxxx:  ce_cpu <= screen_x[3:0] != 4'b1111 && screen_x[3:0] != 4'b1110;
     //6'b11xxxx:  ce_cpu <= |screen_x[3:0] && screen_x[3:0] != 4'b1111 && screen_x[3:0] != 4'b1110;
@@ -281,6 +281,7 @@ wire kbd_keydown;
 wire kbd_ar2;
 
 wire bootrom_sel;       // 1 == memory reads from bootrom
+wire cpumode;           // 0 == kernel, 1 == user
 
  bkcore core (
     .reset_n(~CPU_reset), 
@@ -295,6 +296,7 @@ wire bootrom_sel;       // 1 == memory reads from bootrom
     .adr(cpu_adr), 
     .byte(cpu_byte),
     .ifetch(ifetch),
+    .cpumode_o(cpumode),
     
     .bootrom_sel(bootrom_sel),
     
