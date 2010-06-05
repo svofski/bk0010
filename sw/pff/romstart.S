@@ -173,7 +173,34 @@ _emt:
     add $0120000, r1
     mov r1, *$_emtCB    / r1 points to emt control block, save it there
     jsr pc, _kkommon
-    sub $0120000, r1    / restore r1
+
+    / check if loaded block overwrites user stack
+    mov r2, -(sp)
+    mov 2(r1), r2                   / r2 = emtCB->start
+
+    .word 0006506 /mfpi    sp       / push uSP
+    sub $4, (sp)                    / offset by -4 to simulate EMT in user space
+
+    cmp (sp), r2
+    ble 0f                          / uSP < start, not affected
+    add 4(r1),r2                    / r2 = start + length
+    cmp (sp), r2                    / uSP > start + length ?
+    ble 1f                          /   yes -> do tricks
+0:
+    tst (sp)+                       / dump uSP
+    mov (sp)+, r2                   / restore r2
+    br 2f                        / return to normal return address
+1:
+    / return to where uSP points to in the user space
+    / (sp)    user sp
+    / (sp+2)  r2
+    / (sp+4)  return address
+    / (sp+6)  return PS
+    .word 0006526 /mfpi    (sp)+    / mov user(sp)+, -(sp) - top of the stack has return address 
+    mov 2(sp), r2                   / restore r1
+    mov (sp), 4(sp)                 / shift the frame up
+    add $4, sp
+2:  sub $0120000, r1    / restore r1
     br  _iret
 
 _kkirq:
@@ -199,9 +226,7 @@ _kkommon:
 
     / copy userspace interrupt vectors to kernelspace
     
-    mov $0100000, *$KISA+10         / map userspace 0000000 to 0120000, RW
-    mov $0100200, *$KISA+12         / map userspace 0020000 to 0140000, RW
-    mov $0100400, *$KISA+14         / map userspace 0040000 to 0160000, RW (for large bin files)
+    jsr pc, _umap0                  / map user 000000-057777 to 120000-177777
     
     mov $0120400, r0                / copy vectors that are now in 0120000-0120400...
     mov $0400, r1                   / ...to 0000-0400
@@ -213,6 +238,11 @@ _kkommon:
     jsr pc, _vinst2                 / install abort handlers
     
     mtps $0                         / enable interrupts
+
+    / print user SP
+    / .word 0006506 /mfpi    sp       / load uSP to -(sp)
+    / jsr pc, _printhex
+    / mov (sp)+, r0
 
     / ready to use bios in kernel mode
 
@@ -231,6 +261,8 @@ _restore:
 _noclr:
     jsr pc, _vinst                  / reinstall the initial hook
 
+    jsr pc, _umap0                  / map user 00-57 to kernel 12-77
+
     mov (sp)+,r5
     mov (sp)+,r4
     mov (sp)+,r3
@@ -238,6 +270,12 @@ _noclr:
     mov (sp)+,r1
     mov (sp)+,r0
 
+    rts pc
+
+_umap0:
+    mov $0100000, *$KISA+10         / map userspace 0000000 to 0120000, RW
+    mov $0100200, *$KISA+12         / map userspace 0020000 to 0140000, RW
+    mov $0100400, *$KISA+14         / map userspace 0040000 to 0160000, RW (for large bin files)
     rts pc
 
 _scrprep:

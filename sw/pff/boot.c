@@ -91,6 +91,7 @@ int loadbin() {
     if (n) {
         if (pf_read(&hdr, sizeof(hdr), &n) == FR_OK) {
             if (emtCB && emtCB->start) hdr.start = emtCB->start;
+            /* putchar('!'); printhex(hdr.start); putchar(':'); printhex(hdr.length); getchar(); */
             if (pf_read( (unsigned char *) hdr.start + 0120000, hdr.length, &n) == FR_OK) {
                 if (hdr.length + hdr.start > 16384)
                     return 2;
@@ -193,7 +194,7 @@ int kenter() {
             if(emtCB) {
                 emtCB->cmd = 0;         /* Fill in response: 0 = no error (whatever) */
                 emtCB->start = hdr.start;
-                emtCB->length = hdr.length;
+                emtCB->length = hdr.length; 
             } else {
                 newline();
             }
