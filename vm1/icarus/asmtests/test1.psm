@@ -1,0 +1,10 @@
+	START	=   100000
+
+
+START:
+	;MOVB  #125, @#177776
+	JMP @#200
+	;MOV #200, R7	
+	HALT             
+
+	
