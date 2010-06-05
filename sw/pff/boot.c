@@ -84,20 +84,28 @@ int loadrom() {
  * Load bin-file to virtual addresses 0120000-0157777
  */
 int loadbin() {
-    int n;
+    int n, max;
 
     for(n = 3; --n > 0 && pf_open(fname) != FR_OK;);
 
     if (n) {
         if (pf_read(&hdr, sizeof(hdr), &n) == FR_OK) {
             if (emtCB && emtCB->start) hdr.start = emtCB->start;
-            /* putchar('!'); printhex(hdr.start); putchar(':'); printhex(hdr.length); getchar(); */
-            if (pf_read( (unsigned char *) hdr.start + 0120000, hdr.length, &n) == FR_OK) {
-                if (hdr.length + hdr.start > 16384)
+
+            max = hdr.length;
+            if (hdr.start + hdr.length >= 040000) max -= (hdr.start+hdr.length) - 040000;
+
+            if (pf_read((unsigned char *)hdr.start + 0120000, max, &n) == FR_OK) {
+                max = hdr.length - max;
+                if (max) {
+                    /* map screen area to 12 and read the other part */
+                    asm("jsr pc, _umap1");
+                    pf_read((unsigned char*)0120000, max, &n);
                     return 2;
-                else
-                    return 1;
+                }
+                return 1;
             }
+
         }
     }
 
@@ -189,13 +197,16 @@ int kenter() {
             if(listdir()) puts(M_FAIL);
             if (emtCB) break;           /* avoid eternal loop if requested name is empty */
         } else {
-            puts("\nLoading "); puts(fname); puts("...");
-            puts((c = loadbin()) ? M_OK : M_FAIL);
+            if (!emtCB) {
+                puts("\nLoading "); puts(fname); puts("...");
+            }
+            c = loadbin();
             if(emtCB) {
                 emtCB->cmd = 0;         /* Fill in response: 0 = no error (whatever) */
                 emtCB->start = hdr.start;
                 emtCB->length = hdr.length; 
             } else {
+                puts(c ? M_OK : M_FAIL);
                 newline();
             }
 

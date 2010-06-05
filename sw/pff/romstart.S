@@ -22,12 +22,13 @@
  * See the accompanying file "COPYING" for more details.
  */
 
-	.globl	_edata
-	.globl	_findrom
+	.globl  _edata
+	.globl  _findrom
     .globl  _loadrom
     .globl  _kenter
-    .globl _printhex
-    .globl _emtCB
+    .globl  _printhex
+    .globl  _emtCB
+    .globl  _umap1
 
     KISA = 0177600
     UISA = 0177620
@@ -275,7 +276,11 @@ _noclr:
 _umap0:
     mov $0100000, *$KISA+10         / map userspace 0000000 to 0120000, RW
     mov $0100200, *$KISA+12         / map userspace 0020000 to 0140000, RW
-    mov $0100400, *$KISA+14         / map userspace 0040000 to 0160000, RW (for large bin files)
+    /mov $0100400, *$KISA+14         / map userspace 0040000 to 0160000, RW (for large bin files)
+    rts pc
+_umap1:
+    mov $0100400, *$KISA+10         / map userspace 0000000 to 0120000, RW
+    mov $0100600, *$KISA+12         / map userspace 0020000 to 0140000, RW
     rts pc
 
 _scrprep:
