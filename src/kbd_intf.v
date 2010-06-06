@@ -117,7 +117,7 @@ assign key_super = super_ctr[7:0] != 0 && super_ctr[15:8] == 0;
 always @(posedge mclk or posedge reset_in) begin
     if(reset_in) begin
         kbd_state <= 0;
-        code_latched <= 0;
+        //code_latched <= 0;
         kbd_available <= 0;
         rus <= 0;
     end
