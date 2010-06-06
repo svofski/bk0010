@@ -8,6 +8,8 @@ DIR dir;
 FILINFO fno;
 
 #define SYSREG *((unsigned int*)0177716)    /*!< BK-0010 system control reg */
+#define KBSTATE *((unsigned int*)0177660)   /*!< Keyboard status: 0200 == input available */
+#define KEYCODE *((unsigned int*)0177662)   /*!< Keyboard keycode */
 
 void xmit() {}  /*!< needed by mmc.c streaming feature, unused */
 
@@ -15,8 +17,12 @@ static char* M_FAIL = "\007Fail";   /*!< Failmessage */
 static char* M_OK   = "\007OK";     /*!< Winmessage */
 
 
-static char fname[] = "BK0010/100000.ROM\0XXXXXXXXXXXX";  /*!< file name buffer */
+static char BKDIR[] = "BK0010/";
+static char BASIC[] = "M_BASIC.ROM";
+static char FOCAL[] = "M_FOCAL.ROM";
+
 #define FNBUFL 30                                         /*!< file name buffer size */
+char fname[FNBUFL];                                       /*!< file name buffer */
 
 char lastfile[14];              /*!< last valid file for tab completion */
 
@@ -55,6 +61,7 @@ int findrom()
 {
     int i;
     unsigned count = 0;
+    char *romname = BASIC;
 
     disk_sbuf(buffer);
 
@@ -62,8 +69,18 @@ int findrom()
 
     for (i = 1000; --i > 0 && pf_mount(&fatfs) != FR_OK;);
     if (i) {
-        *romptr = 0xac;
-
+        *((unsigned *)romptr) = fname;
+        strcpy(fname,   BKDIR);
+        if (!(SYSREG & 0100)) {
+            switch (KEYCODE) {
+                case 0003:  romname = FOCAL;    /* F2/KT   boots FOCAL */
+                            break;
+                case 0201:
+                default:    romname = BASIC;    /* F1/POVT boots BASIC */
+                            break;
+            }
+        }
+        strcpy(fname+7, romname);
         if (pf_open(fname) == FR_OK) {
             return 0;
         }
@@ -85,6 +102,7 @@ int loadrom() {
  */
 int loadbin() {
     int n, max;
+    unsigned char *start;
 
     for(n = 3; --n > 0 && pf_open(fname) != FR_OK;);
 
@@ -93,14 +111,24 @@ int loadbin() {
             if (emtCB && emtCB->start) hdr.start = emtCB->start;
 
             max = hdr.length;
-            if (hdr.start + hdr.length >= 040000) max -= (hdr.start+hdr.length) - 040000;
+            if (hdr.start >= 040000) {
+                /* A hack for high-loading programs like MIRAGE */
+                start = (unsigned char *) (hdr.start + 0120000 - 040000);
+                goto readhi;
+            } else {
+                if (hdr.start + hdr.length >= 040000) max -= (hdr.start+hdr.length) - 040000;
+            }
 
-            if (pf_read((unsigned char *)hdr.start + 0120000, max, &n) == FR_OK) {
+            start = (unsigned char *) hdr.start + 0120000;
+
+            if (pf_read(start, max, &n) == FR_OK) {
                 max = hdr.length - max;
                 if (max) {
+                    start = (unsigned char *) 0120000;
+readhi:
                     /* map screen area to 12 and read the other part */
                     asm("jsr pc, _umap1");
-                    pf_read((unsigned char*)0120000, max, &n);
+                    pf_read(start, max, &n);
                     return 2;
                 }
                 return 1;

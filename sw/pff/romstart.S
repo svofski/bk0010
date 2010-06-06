@@ -107,7 +107,7 @@ mmuinit:
     sob r3, 5b
 
     mov    $_edata,r0        / clear bss and stack
-1:    clr    (r0)+
+1:  clr    (r0)+
     cmp    r0,$ TOPSYS
     blo    1b
 
@@ -119,10 +119,10 @@ helo:                   / display boot icon
 
 themain:
     / call main and make it return into 01000-space
-    mov $Lret, r0
-    jsr r0, *$_findrom
-
-Lret:
+    jmp *$in1000
+    / in 01000-address space since this moment
+in1000:
+    jsr pc, *$_findrom
     tst r0
     bne fatal
 
