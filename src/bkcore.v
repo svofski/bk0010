@@ -203,7 +203,8 @@ parameter
     MMUREGS = 5,
     MMUCTRL = 6,
     TIMERREGS = 7,
-    LASTREGSEL = 7;
+    ENIGMA700 = 8,       // 177700 in user mode
+    LASTREGSEL = 8;
     
 wire        [LASTREGSEL:0] regsel;
 
@@ -216,9 +217,10 @@ assign regsel[INITREG]   = (evenreg == 'o116);
 assign regsel[USRREG]    = (evenreg == 'o114);
 assign regsel[TIMERREGS] = (evenreg == 'o106 || evenreg == 'o110 || evenreg == 'o112); 
 
+assign regsel[ENIGMA700] = (_cpu_adrs[6:0] == 'o100) & cpu_mode;    // same reg as MMUCTRL but in user mode
+
 assign regsel[MMUREGS]   = (_cpu_adrs[6:5] == 2'b00) & ~cpu_mode;
 assign regsel[MMUCTRL]   = (_cpu_adrs[6:0] == 'o100) & ~cpu_mode;
-
 
 wire   bad_reg = ~|regsel;
 
@@ -293,6 +295,7 @@ always @(posedge clk or negedge reset_n) begin
                             regsel[INITREG]:    {tape_out,initreg_access_latch,spi_cs_n} <= {data_from_cpu[6], 1'b1,data_from_cpu[0]};
                             regsel[USRREG]:     {spi_wren,spi_do} <= {1'b1,data_from_cpu[7:0]};
                             regsel[MMUCTRL]:    {cpumode_req,mmu_enabled,shadowmode} <= data_from_cpu[2:0];
+//                            regsel[ENIGMA700]:  ;// bit 2 in this reg switches CPU into WAIT mode
                         endcase
                     end
                     
@@ -326,9 +329,11 @@ always @* begin: _databus_selector
             regsel[INITREG]:    databus_in = {init_reg_hi, 1'b1, ~keydown, tape_in, 1'b0, 1'b0, stopkey_latch|initreg_access_latch, 1'b0,1'b0};
             regsel[ROLL]:       databus_in = roll;
             regsel[USRREG]:     databus_in = cpu_mode ? 16'o0 : {~spi_dsr, spi_di};      // this could be a joystick...
+            regsel[TIMERREGS]:  databus_in = data_from_timer;
+            regsel[ENIGMA700]:  databus_in = 16'o 177740;
+
             regsel[MMUREGS]:    databus_in = data_from_mmu;
             regsel[MMUCTRL]:    databus_in = {cpu_mode,cpumode_req,mmu_enabled,shadowmode};
-            regsel[TIMERREGS]:  databus_in = data_from_timer;
         endcase
         
     ~reg_space:
