@@ -101,6 +101,7 @@ int loadbin() {
                     /* map screen area to 12 and read the other part */
                     asm("jsr pc, _umap1");
                     pf_read((unsigned char*)0120000, max, &n);
+                    asm("jsr pc, _umap0");
                     return 2;
                 }
                 return 1;
