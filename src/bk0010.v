@@ -275,10 +275,11 @@ assign CPU_reset = reset_in | led_from_usb[0];
 assign cpu_rdy_final = cpu_rdy &  ~breakpoint_latch;
    
 
-wire kbd_stopkey;
-wire kbd_superkey;
-wire kbd_keydown;
-wire kbd_ar2;
+wire        kbd_stopkey;
+wire        kbd_superkey;
+wire        kbd_keydown;
+wire        kbd_ar2;
+wire [15:0] kbd_joy;
 
 wire bootrom_sel;       // 1 == memory reads from bootrom
 wire cpumode;           // 0 == kernel, 1 == user
@@ -310,6 +311,8 @@ wire cpumode;           // 0 == kernel, 1 == user
     .superkey(kbd_superkey),
     .keydown(kbd_keydown),
     .kbd_ar2(kbd_ar2),
+    .joystick(kbd_joy),
+    
     .tape_out(tape_out),
     .tape_in(tape_in),
     .redleds(redleds),
@@ -453,12 +456,13 @@ kbd_intf kbd_intf (
     .PS2_Clk(PS2_Clk), 
     .PS2_Data(PS2_Data), 
     .ascii(ascii), 
-    .kbd_available(kbd_available), 
+    .available(kbd_available), 
     .read_kb(read_kbd),
     .key_stop(kbd_stopkey),
     .key_super(kbd_superkey),
     .key_down(kbd_keydown),
     .ar2(kbd_ar2),
+    .joy(kbd_joy)
     );
     
     

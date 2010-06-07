@@ -11,26 +11,35 @@
 
 `default_nettype none
 
-module kbd_intf(mclk, reset_in, PS2_Clk, PS2_Data, shift, ar2, ascii, kbd_available, read_kb, key_stop, key_super, key_down, ul);
+module kbd_intf(mclk, reset_in, PS2_Clk, PS2_Data, shift, ar2, ascii, available, read_kb, key_stop, key_super, key_down, joy, ul);
 
 input               mclk, reset_in, read_kb;
 input               PS2_Clk,PS2_Data;
 
-output              shift, ar2, kbd_available;
+output              shift, ar2;
+output              available = kbd_available;
    
 output              key_stop;
 output              key_super;
-output reg          key_down;       // any key is down
-output   [1:0]      ul = {uppercase,lowercase};
+output              key_down = key_down_r;       // any key is down
+output [15:0]       joy;
+output [1:0]        ul = {uppercase,lowercase};
 
-reg    [2:0]        kbd_state;  
-reg    [2:0]        kbd_state_next;
+reg    [3:0]        kbd_state;  
+reg    [3:0]        kbd_state_next;
 reg                 shift;
 reg                 ctrl;
 reg                 alt;
-reg    [7:0]        code_latched;
 reg                 kbd_available;
+reg                 key_down_r;
+
+reg    [7:0]        decoded_r;
+
 reg                 rus;            // 1 = RUS, 0 = LAT
+reg                 e0;
+
+wire    [15:0]      joy;
+wire                joy_used = |joy;
 
 wire                autoar2;        // AR2 forced by special keys (e.g. POVT)
 output [6:0]        ascii;
@@ -55,15 +64,17 @@ PS2_Ctrl PS2_Ctrl (
 
 assign  DoRead = Scan_DAV;
 
-kbd_transl kbd_transl( .shift(shift), .incode(code_latched), .outcode(decoded), .autoar2(autoar2)); 
+kbd_transl kbd_transl( .shift(shift), .e0(e0), .incode(Scan_Code), .outcode(decoded), .autoar2(autoar2)); 
+
+joystick joy0(.clk(mclk), .reset_n(~reset_in), .e0(e0), .mk(kbd_state == 7), .brk(kbd_state == 6), .incode(Scan_Code), .joybits(joy));
 
 wire lowercase = (decoded > 7'h60) & (decoded <= 7'h7a); 
 wire uppercase = (decoded > 7'h40) & (decoded <= 7'h5a);
 
-assign ascii = ctrl? {2'b0, decoded[4:0]} : 
-               rus ? decoded : 
-               lowercase ? decoded - 7'h20 : 
-               uppercase ? decoded + 7'h20 : decoded; 
+assign ascii = ctrl? {2'b0, decoded_r[4:0]} : 
+               rus ? decoded_r : 
+               lowercase ? decoded_r - 7'h20 : 
+               uppercase ? decoded_r + 7'h20 : decoded_r; 
 
 
 wire scan_shift = Scan_Code == 8'h12;
@@ -107,42 +118,55 @@ always @(posedge mclk or posedge reset_in) begin
     end
 end //always
 
-
-reg [15:0] stop_ctr;
-assign key_stop = stop_ctr[7:0] != 0 && stop_ctr[15:8] == 0;
-
-reg [15:0] super_ctr;
-assign key_super = super_ctr[7:0] != 0 && super_ctr[15:8] == 0;
- 
 always @(posedge mclk or posedge reset_in) begin
     if(reset_in) begin
-        kbd_state <= 0;
-        //code_latched <= 0;
         kbd_available <= 0;
         rus <= 0;
+        e0 <= 0;
     end
     else begin
-        kbd_state <= kbd_state_next;
-        if(read_kb)
-            kbd_available <= 0;
-        if( kbd_state == 7) begin
-            if (!key_down) begin
-                code_latched <= Scan_Code;
-                kbd_available <= 1;
-                key_down <= 1;
+        // cpu has read the data, reset availability flag
+        if(read_kb) kbd_available <= 0;
+        
+        case (kbd_state)
+        7:  begin
+                // register keypress
+                if (!key_down_r) begin
+                    if (|decoded | key_super) begin
+                        decoded_r <= decoded;
+                        kbd_available <= 1;
+                        key_down_r <= 1;
+                        
+                        case (decoded)
+                        7'o016: rus <= 1;
+                        7'o017: rus <= 0;
+                        default:;
+                        endcase
+                        
+                    end
+                end
             end
-        end 
-        else if (kbd_state == 6) begin
-            key_down <= 0;
-        end 
-        else if (kbd_state == 0) begin
-            case (decoded)
-            7'o016: rus <= 1;
-            7'o017: rus <= 0;
-            default:;
-            endcase
-        end
+        6:  begin
+                // register key release
+                key_down_r <= 0;
+            end
+        2:  begin
+                // set e0 if it's an extended key
+                if (Scan_Code == 8'he0) e0 <= 1'b1;
+            end
+        8:  begin
+                // End of key press or release, reset e0 flag
+                e0 <= 1'b0;
+            end
+        endcase
     end
+end
+
+always @(posedge mclk or posedge reset_in) begin: _keyfsm
+    if(reset_in) 
+        kbd_state <= 0;
+    else 
+        kbd_state <= kbd_state_next;
 end
 
 always @ (kbd_state or Scan_Code or Scan_DAV) begin
@@ -176,13 +200,68 @@ always @ (kbd_state or Scan_Code or Scan_DAV) begin
         else
             kbd_state_next <= 5;
 
-    6:  kbd_state_next <= 0;
+    6:  kbd_state_next <= 8; // break
 
-    7:  kbd_state_next <= 0;
+    7:  kbd_state_next <= 8; // make 
+    
+    8:  kbd_state_next <= 0; // reset e0
     
     default: 
         kbd_state_next <= 0;
     endcase
 end
 
+// "long" keys: STOP and SUPER
+reg [15:0] stop_ctr;
+assign key_stop = stop_ctr[7:0] != 0 && stop_ctr[15:8] == 0;
+
+reg [15:0] super_ctr;
+assign key_super = super_ctr[7:0] != 0 && super_ctr[15:8] == 0;
+ 
+
+
 endmodule
+
+module joystick(
+            input           clk, 
+            input           reset_n, 
+            input           e0, 
+            input           mk,
+            input           brk,
+            input [7:0]     incode, 
+            output reg[15:0] joybits);
+            
+always @(posedge clk or negedge reset_n) begin: _happy
+    if (~reset_n) 
+        joybits <= 0;
+    else begin
+        if (mk) begin
+            case ({e0, incode})
+            9'h075: joybits[10] <= 1;    // UP
+            9'h072: joybits[5]  <= 1;    // DOWN
+            9'h06b: joybits[9]  <= 1;    // LEFT
+            9'h074: joybits[4]  <= 1;    // RIGHT
+            9'h14a: joybits[0]  <= 1;    // FIRE 1: (KP /)
+            9'h070: joybits[1]  <= 1;    // FIRE 2: (KP 0)
+            9'h073: joybits[2]  <= 1;    // FIRE 3: (KP 5)
+            9'h15a: joybits[3]  <= 1;    // FIRE 4: (KP ENTER)
+            endcase
+        end 
+        else if (brk) begin
+            case ({e0, incode})
+            9'h075: joybits[10] <= 0;    // UP
+            9'h072: joybits[5]  <= 0;    // DOWN
+            9'h06b: joybits[9]  <= 0;    // LEFT
+            9'h074: joybits[4]  <= 0;    // RIGHT
+            9'h14a: joybits[0]  <= 0;    // FIRE 1: (KP /)
+            9'h070: joybits[1]  <= 0;    // FIRE 2: (KP 0)
+            9'h073: joybits[2]  <= 0;    // FIRE 3: (KP 5)
+            9'h15a: joybits[3]  <= 0;    // FIRE 4: (KP ENTER)
+            endcase
+        end
+    end
+
+end            
+            
+endmodule            
+            

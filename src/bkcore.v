@@ -36,6 +36,7 @@ module bkcore(
         input               stopkey,        // i: STOP key pressed
         input               superkey,       // i: SUPER (ScrollLock) key pressed
         input               keydown,        // i: a key is being depressed
+        input       [15:0]  joystick,       // i: joystick
         
         output       [7:0]  roll_out,       // o: scroll register value
         output              full_screen_o,  // o: 1 == full screen, 0 == extended RAM mode
@@ -328,7 +329,7 @@ always @* begin: _databus_selector
             regsel[KBD_STATE]:  databus_in = {8'b0000000, kbd_available, kbdint_enable_n, 6'b000000};
             regsel[INITREG]:    databus_in = {init_reg_hi, 1'b1, ~keydown, tape_in, 1'b0, 1'b0, stopkey_latch|initreg_access_latch, 1'b0,1'b0};
             regsel[ROLL]:       databus_in = roll;
-            regsel[USRREG]:     databus_in = cpu_mode ? 16'o0 : {~spi_dsr, spi_di};      // this could be a joystick...
+            regsel[USRREG]:     databus_in = cpu_mode ? joystick : {~spi_dsr, spi_di};      // this could be a joystick...
             regsel[TIMERREGS]:  databus_in = data_from_timer;
             regsel[ENIGMA700]:  databus_in = 16'o 177740;
 
