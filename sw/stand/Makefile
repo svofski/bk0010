@@ -24,8 +24,8 @@ SIZE		= pdp11-size -o
 FSUTIL		= u6-fsutil -F
 LDFLAGS		= -X
 
-SRCS		= start.S console.c printf.c strlen.c
-OBJS		= console.o printf.o strlen.o
+SRCS		= start.S console.c printhex.c printf.c strlen.c
+OBJS		= console.o printhex.o printf.o strlen.o
 PROG		= fdfmt fdgetrom fdinfo hello #\
 		  tstsh tstlsh tstmul tstdiv tstrem tstuldiv tstulrem \
 		  tstlmul tstldiv tstlrem
@@ -127,6 +127,7 @@ depend:
 ### DO NOT DELETE THIS LINE
 start.o: start.S
 console.o: console.c
+printhex.o: printhex.c
 fdfmt.o: fdfmt.c
 fdgetrom.o: fdgetrom.c
 fdinfo.o: fdinfo.c

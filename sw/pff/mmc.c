@@ -73,15 +73,6 @@ DWORD arg;
 	xmit_spi((BYTE)(arg >> 16));		/* Argument[23..16] */
 	xmit_spi((BYTE)(arg >> 8));			/* Argument[15..8] */
 	xmit_spi((BYTE)(arg & 0377));		/* Argument[7..0] */
-
-#if 0
-    puts("[");
-	printhex((BYTE)(arg >> 24));puts(":");		/* Argument[31..24] */
-	printhex((BYTE)(arg >> 16));puts(":");		/* Argument[23..16] */
-	printhex((BYTE)(arg >> 8));puts(":");			/* Argument[15..8] */
-	printhex((BYTE)(arg & 0377));		/* Argument[7..0] */
-    puts("]");
-#endif
 }
 
 /*-----------------------------------------------------------------------*/
@@ -132,8 +123,6 @@ DWORD arg;
 	do {
 		res = rcv_spi();
 	} while ((res & 0x80) && --n);
-
-    /*puts("c:"); printhex(cmd); puts("r:"); printhex(res); puts(" ");*/
 
 	return res;			/* Return with the response value */
 }
@@ -216,19 +205,9 @@ WORD cnt;
 	WORD bc;
     WORD rbidx = 0;
 
-#define NO_INSANELYVERBOSE
-#ifdef INSANELYVERBOSE
-#endif    
 	if (!(CardType & CT_BLOCK)) {
-#ifdef INSANELYVERBOSE
-        puts("lbain="); printq((DWORD)lba,0);
-#endif
         lba *= 512;		/* Convert to byte address if needed */
     }
-
-#ifdef INSANELYVERBOSE
-    puts(" lba="); printq((DWORD)lba,1); puts(" o="); printhex(ofs); putchar(' ');
-#endif
 
     /* Use buffered data if any */
     if (rbuf != 0 && lba == rbuflba) {

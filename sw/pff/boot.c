@@ -17,7 +17,7 @@ static char* M_FAIL = "\007Fail";   /*!< Failmessage */
 static char* M_OK   = "\007OK";     /*!< Winmessage */
 
 
-static char BKDIR[] = "BK0010/";
+static char BKDIR[] = "BK0010";
 static char BASIC[] = "M_BASIC.ROM";
 static char FOCAL[] = "M_FOCAL.ROM";
 
@@ -29,6 +29,10 @@ char lastfile[14];              /*!< last valid file for tab completion */
 unsigned char buffer[512];      /*!< disk i/o buffer */
 
 unsigned char* romptr = (unsigned char *)0100000; /*!< rom will be read here */
+
+unsigned udummy;
+int      idummy;
+char*    sdummy;
 
 /*! BIN file header */
 struct binhdr {
@@ -43,7 +47,7 @@ struct emtcb {
     char name[20];
 } *emtCB;
 
-static struct binhdr hdr;
+struct binhdr hdr;
 
 
 #if DEBUG
@@ -59,28 +63,24 @@ void newline() { putchar('\n'); }
  */
 int findrom()
 {
-    int i;
-    unsigned count = 0;
-    char *romname = BASIC;
+    sdummy = BASIC;
 
-    disk_sbuf(buffer);
+    disk_sbuf(buffer);      /* set disk i/o buffer */
 
-    *romptr = 0xab;
-
-    for (i = 1000; --i > 0 && pf_mount(&fatfs) != FR_OK;);
-    if (i) {
-        *((unsigned *)romptr) = fname;
+    for (idummy = 10000; --idummy > 0 && pf_mount(&fatfs) != FR_OK;);
+    if (idummy) {
         strcpy(fname,   BKDIR);
+        fname[6] = '/';
         if (!(SYSREG & 0100)) {
             switch (KEYCODE) {
-                case 0003:  romname = FOCAL;    /* F2/KT   boots FOCAL */
+                case 0003:  sdummy = FOCAL;    /* F2/KT   boots FOCAL */
                             break;
                 case 0201:
-                default:    romname = BASIC;    /* F1/POVT boots BASIC */
+                default:    sdummy = BASIC;    /* F1/POVT boots BASIC */
                             break;
             }
         }
-        strcpy(fname+7, romname);
+        strcpy(fname+7, sdummy);
         if (pf_open(fname) == FR_OK) {
             return 0;
         }
@@ -93,8 +93,7 @@ int findrom()
  * Bootstrap Phase 2. Load the ROM.
  */
 int loadrom() {
-    int i;
-    return pf_read(romptr, 32752, &i) != FR_OK;
+    return pf_read(romptr, 32752, &idummy) != FR_OK;
 }
 
 /**
@@ -116,7 +115,7 @@ int loadbin() {
                 start = (unsigned char *) (hdr.start + 0120000 - 040000);
                 goto readhi;
             } else {
-                if (hdr.start + hdr.length >= 040000) max -= (hdr.start+hdr.length) - 040000;
+                if (hdr.start + hdr.length > 040000) max -= (hdr.start+hdr.length) - 040000;
             }
 
             start = (unsigned char *) hdr.start + 0120000;
@@ -142,15 +141,18 @@ readhi:
     return 0;
 }
 
+void pace() {
+    putchar(':'); getchar(); putchar(030);
+}
+
 /** 
  * List all files with names starting with (fname+7).
  * If there is only one matching file, copy its full name into (fname+7).
  */
 int listdir() {
-    FRESULT r;
     int i;
 
-    for(i = 3; --i > 0 && (r = pf_opndir(&dir, "BK0010")) != FR_OK;);
+    for(i = 3; --i > 0 && (pf_opndir(&dir, BKDIR)) != FR_OK;);
 
     if (i) {
         for(i = 0; pf_rddir(&dir, &fno) == FR_OK;) {
@@ -163,6 +165,10 @@ int listdir() {
                 if (i != 0) pputs(fno.fname, 16);
                 strcpy(lastfile, fno.fname);
                 i++;
+                if (i == 84) {
+                    i -= 80;
+                    pace();
+                }
             }
         }
         if (i == 1) {
@@ -170,6 +176,7 @@ int listdir() {
         } else if (i > 1) {
             newline();
         }
+        if (emtCB) pace();
 
         return 0;
     } 
@@ -224,15 +231,17 @@ int kenter() {
         fname[i] = '\0';
 
         if (i == 7 || c == 011) {
-            if(listdir()) puts(M_FAIL);
-            if (emtCB) break;           /* avoid eternal loop if requested name is empty */
+            if((c = listdir()) != 0) {
+                puts(M_FAIL);
+            }
+            if (c||emtCB) return 0;             /* avoid eternal loop if requested name is empty */
         } else {
             if (!emtCB) {
-                puts("\nLoading "); puts(fname); puts("...");
+                puts("\nLoading "); puts(fname); 
             }
             c = loadbin();
             if(emtCB) {
-                emtCB->cmd = 0;         /* Fill in response: 0 = no error (whatever) */
+                emtCB->cmd = c ? 0 : 0x200;         /* Fill in response: 0 = no error (whatever) */
                 emtCB->start = hdr.start;
                 emtCB->length = hdr.length; 
             } else {
@@ -243,5 +252,6 @@ int kenter() {
             return c == 2;
         }
     }
-    return 0;
+    /* we never make it here */
+    /* return 0; */
 }

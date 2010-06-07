@@ -12,11 +12,10 @@ void pputs(s, width)
 char *s;
 int width;
 {
-    int slen = strlen(s);
     int pad;
 
     puts(s);
-    for (pad = width - slen; --pad >= 0;) putchar(' ');
+    for (pad = width - strlen(s); --pad >= 0;) putchar(' ');
 }
 
 /* Return true if s1 is a prefix of s2 */
