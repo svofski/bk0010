@@ -129,6 +129,8 @@ readhi:
                     /* map screen area to 12 and read the other part */
                     asm("jsr pc, _umap1");
                     pf_read(start, max, &n);
+                    /* restore the mapping: emtCB points there */
+                    asm("jsr pc, _umap0");
                     return 2;
                 }
                 return 1;

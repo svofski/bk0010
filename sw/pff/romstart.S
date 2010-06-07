@@ -31,7 +31,8 @@
     .globl  _kenter
     .globl  _printhex
     .globl  _emtCB
-    .globl  _umap1
+    .globl  _umap0              / map user 000000-037777 to 120000-157777
+    .globl  _umap1              / map user 040000-077777 to 120000-157777
 
     KISA = 0177600
     UISA = 0177620
