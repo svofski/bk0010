@@ -118,55 +118,55 @@ always @(posedge mclk or posedge reset_in) begin
     end
 end //always
 
-
-reg [15:0] stop_ctr;
-assign key_stop = stop_ctr[7:0] != 0 && stop_ctr[15:8] == 0;
-
-reg [15:0] super_ctr;
-assign key_super = super_ctr[7:0] != 0 && super_ctr[15:8] == 0;
- 
 always @(posedge mclk or posedge reset_in) begin
     if(reset_in) begin
-        kbd_state <= 0;
-        //code_latched <= 0;
         kbd_available <= 0;
         rus <= 0;
         e0 <= 0;
     end
     else begin
-        kbd_state <= kbd_state_next;
-        if(read_kb)
-            kbd_available <= 0;
-        if( kbd_state == 7) begin
-            if (!key_down_r) begin
-                if (|decoded | key_super) begin
-                    decoded_r <= decoded;
-                    kbd_available <= 1;
-                    key_down_r <= 1;
-                    
-                    case (decoded)
-                    7'o016: rus <= 1;
-                    7'o017: rus <= 0;
-                    default:;
-                    endcase
-                    
+        // cpu has read the data, reset availability flag
+        if(read_kb) kbd_available <= 0;
+        
+        case (kbd_state)
+        7:  begin
+                // register keypress
+                if (!key_down_r) begin
+                    if (|decoded | key_super) begin
+                        decoded_r <= decoded;
+                        kbd_available <= 1;
+                        key_down_r <= 1;
+                        
+                        case (decoded)
+                        7'o016: rus <= 1;
+                        7'o017: rus <= 0;
+                        default:;
+                        endcase
+                        
+                    end
                 end
             end
-        end 
-        else 
-        if (kbd_state == 6) begin   // release
-            key_down_r <= 0;
-            //e0 <= 0;
-        end 
-        else 
-        if (kbd_state == 2) begin
-            if (Scan_Code == 8'he0) e0 <= 1'b1;
-        end
-        else 
-        if (kbd_state == 8) begin
-            e0 <= 1'b0;
-        end
+        6:  begin
+                // register key release
+                key_down_r <= 0;
+            end
+        2:  begin
+                // set e0 if it's an extended key
+                if (Scan_Code == 8'he0) e0 <= 1'b1;
+            end
+        8:  begin
+                // End of key press or release, reset e0 flag
+                e0 <= 1'b0;
+            end
+        endcase
     end
+end
+
+always @(posedge mclk or posedge reset_in) begin: _keyfsm
+    if(reset_in) 
+        kbd_state <= 0;
+    else 
+        kbd_state <= kbd_state_next;
 end
 
 always @ (kbd_state or Scan_Code or Scan_DAV) begin
@@ -210,6 +210,15 @@ always @ (kbd_state or Scan_Code or Scan_DAV) begin
         kbd_state_next <= 0;
     endcase
 end
+
+// "long" keys: STOP and SUPER
+reg [15:0] stop_ctr;
+assign key_stop = stop_ctr[7:0] != 0 && stop_ctr[15:8] == 0;
+
+reg [15:0] super_ctr;
+assign key_super = super_ctr[7:0] != 0 && super_ctr[15:8] == 0;
+ 
+
 
 endmodule
 
