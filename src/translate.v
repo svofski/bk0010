@@ -50,11 +50,11 @@ always @(shift_key_plus_code) begin
     end
     
     9'H05a : begin
-      ascii = 7'H0a;
+      if (~e0) ascii = 7'H0a;
       // Carriage return ("enter" key)
     end
     9'H15a : begin
-      ascii = 7'H0d;
+      if (~e0) ascii = 7'H0d;
       // Carriage return ("enter" key)
     end
     9'H076 : begin

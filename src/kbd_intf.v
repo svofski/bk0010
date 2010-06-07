@@ -17,16 +17,16 @@ input               mclk, reset_in, read_kb;
 input               PS2_Clk,PS2_Data;
 
 output              shift, ar2;
-output              available = kbd_available & ((decoded != 0) | key_super);
+output              available = kbd_available;
    
 output              key_stop;
 output              key_super;
-output              key_down = key_down_r & (decoded != 0);       // any key is down
+output              key_down = key_down_r;       // any key is down
 output [15:0]       joy;
 output [1:0]        ul = {uppercase,lowercase};
 
-reg    [2:0]        kbd_state;  
-reg    [2:0]        kbd_state_next;
+reg    [3:0]        kbd_state;  
+reg    [3:0]        kbd_state_next;
 reg                 shift;
 reg                 ctrl;
 reg                 alt;
@@ -156,11 +156,15 @@ always @(posedge mclk or posedge reset_in) begin
         else 
         if (kbd_state == 6) begin   // release
             key_down_r <= 0;
-            e0 <= 0;
+            //e0 <= 0;
         end 
         else 
         if (kbd_state == 2) begin
             if (Scan_Code == 8'he0) e0 <= 1'b1;
+        end
+        else 
+        if (kbd_state == 8) begin
+            e0 <= 1'b0;
         end
     end
 end
@@ -196,9 +200,11 @@ always @ (kbd_state or Scan_Code or Scan_DAV) begin
         else
             kbd_state_next <= 5;
 
-    6:  kbd_state_next <= 0;
+    6:  kbd_state_next <= 8; // break
 
-    7:  kbd_state_next <= 0;
+    7:  kbd_state_next <= 8; // make 
+    
+    8:  kbd_state_next <= 0; // reset e0
     
     default: 
         kbd_state_next <= 0;
@@ -229,6 +235,7 @@ always @(posedge clk or negedge reset_n) begin: _happy
             9'h14a: joybits[0]  <= 1;    // FIRE 1: (KP /)
             9'h070: joybits[1]  <= 1;    // FIRE 2: (KP 0)
             9'h073: joybits[2]  <= 1;    // FIRE 3: (KP 5)
+            9'h15a: joybits[3]  <= 1;    // FIRE 4: (KP ENTER)
             endcase
         end 
         else if (brk) begin
@@ -240,6 +247,7 @@ always @(posedge clk or negedge reset_n) begin: _happy
             9'h14a: joybits[0]  <= 0;    // FIRE 1: (KP /)
             9'h070: joybits[1]  <= 0;    // FIRE 2: (KP 0)
             9'h073: joybits[2]  <= 0;    // FIRE 3: (KP 5)
+            9'h15a: joybits[3]  <= 0;    // FIRE 4: (KP ENTER)
             endcase
         end
     end
