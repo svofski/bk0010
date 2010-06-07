@@ -190,7 +190,7 @@ int kenter() {
 
     fname[7] = 0;
 
-    newline();
+    if (!emtCB) newline();
     for(;;) {
         for (i = 7; fname[i]; i++);
 
