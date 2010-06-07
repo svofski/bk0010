@@ -150,7 +150,7 @@ void pace() {
  * If there is only one matching file, copy its full name into (fname+7).
  */
 int listdir() {
-    int i;
+    int i, j;
 
     for(i = 3; --i > 0 && (pf_opndir(&dir, BKDIR)) != FR_OK;);
 
@@ -161,9 +161,16 @@ int listdir() {
                 if (i == 1) {
                     newline();
                     pputs(lastfile, 16);
-                }
+                } 
                 if (i != 0) pputs(fno.fname, 16);
-                strcpy(lastfile, fno.fname);
+
+                if (i == 0) {
+                    strcpy(lastfile, fno.fname);
+                } else {
+                    for (j = 0; lastfile[j] == fno.fname[j]; j++);
+                    lastfile[j] = '\0';
+                }
+
                 i++;
                 if (i == 84) {
                     i -= 80;
@@ -171,9 +178,9 @@ int listdir() {
                 }
             }
         }
-        if (i == 1) {
-            strcpy(fname+7, lastfile);
-        } else if (i > 1) {
+
+        if (i > 0) strcpy(fname+7, lastfile);
+        if (i > 1) {
             newline();
         }
         if (emtCB) pace();
