@@ -141,7 +141,7 @@ module idc (
                 idc_opc[15:3] == 'o 00001 ||    // opcodes 000010 through 000037 unused on VM1
                 idc_opc[15:3] == 'o 00002 ||
                 idc_opc[15:3] == 'o 00003 ||
-                idc_opc == 'o177777;
+                idc_opc[15:12] == 'o17;
                 
 
 
