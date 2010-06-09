@@ -13,13 +13,14 @@ FILINFO fno;
 
 void xmit() {}  /*!< needed by mmc.c streaming feature, unused */
 
-static char* M_FAIL = "\007Fail";   /*!< Failmessage */
-static char* M_OK   = "\007OK";     /*!< Winmessage */
+static char* M_FAIL = "\007:(";   /*!< Failmessage */
+static char* M_OK   = "\007:)";     /*!< Winmessage */
 
 
 static char BKDIR[] = "BK0010";
 static char BASIC[] = "M_BASIC.ROM";
 static char FOCAL[] = "M_FOCAL.ROM";
+static char BINSUFFIX[] = ".BIN";
 
 #define FNBUFL 30                                         /*!< file name buffer size */
 char fname[FNBUFL];                                       /*!< file name buffer */
@@ -101,9 +102,16 @@ int loadrom() {
  */
 int loadbin() {
     int n, max;
-    unsigned char *start;
 
-    for(n = 3; --n > 0 && pf_open(fname) != FR_OK;);
+    /* First pf_open tends to return error for some reason, so two may be necessary.
+       If exact filename fails, try appening ".BIN" to its name. */
+    for(n = 4; --n > 0 && pf_open(fname) != FR_OK;) {
+        if (n == 2) {
+            strcpy(fname+strlen(fname), BINSUFFIX);
+        }
+    }
+
+    hdr.start = 0;
 
     if (n) {
         if (pf_read(&hdr, sizeof(hdr), &n) == FR_OK) {
@@ -112,22 +120,22 @@ int loadbin() {
             max = hdr.length;
             if (hdr.start >= 040000) {
                 /* A hack for high-loading programs like MIRAGE */
-                start = (unsigned char *) (hdr.start + 0120000 - 040000);
+                romptr = (unsigned char *) (hdr.start + 0120000 - 040000);
                 goto readhi;
             } else {
                 if (hdr.start + hdr.length > 040000) max -= (hdr.start+hdr.length) - 040000;
             }
 
-            start = (unsigned char *) hdr.start + 0120000;
+            romptr = (unsigned char *) hdr.start + 0120000;
 
-            if (pf_read(start, max, &n) == FR_OK) {
+            if (pf_read(romptr, max, &n) == FR_OK) {
                 max = hdr.length - max;
                 if (max) {
-                    start = (unsigned char *) 0120000;
+                    romptr = (unsigned char *) 0120000;
 readhi:
                     /* map screen area to 12 and read the other part */
                     asm("jsr pc, _umap1");
-                    pf_read(start, max, &n);
+                    pf_read(romptr, max, &n);
                     /* restore the mapping: emtCB points there */
                     asm("jsr pc, _umap0");
                     return 2;
@@ -141,8 +149,13 @@ readhi:
     return 0;
 }
 
-void pace() {
-    putchar(':'); getchar(); putchar(030);
+int pace() {
+    int c;
+    putchar(':'); 
+    c = getchar(); 
+    putchar(030);
+
+    return c;
 }
 
 /** 
@@ -174,7 +187,7 @@ int listdir() {
                 i++;
                 if (i == 84) {
                     i -= 80;
-                    pace();
+                    if (pace() == 0x1b) break;  /* stop on ESC */
                 }
             }
         }
@@ -228,6 +241,8 @@ int kenter() {
                     }
                 } else if (c == 011) {      /* TAB (see below and listdir()) */
                     break;
+                } else if (c == 0x1b) {
+                    return 0;
                 } else {
                     fname[i++] = c;
                 }
@@ -237,7 +252,7 @@ int kenter() {
 
         fname[i] = '\0';
 
-        if (i == 7 || c == 011) {
+        if (i == 7 || c == 011) {               /* empty file name or tab pressed */
             if((c = listdir()) != 0) {
                 puts(M_FAIL);
             }
@@ -247,10 +262,11 @@ int kenter() {
                 puts("\nLoading "); puts(fname); 
             }
             c = loadbin();
+
             if(emtCB) {
                 emtCB->cmd = c ? 0 : 0x200;         /* Fill in response: 0 = no error (whatever) */
-                emtCB->start = hdr.start;
-                emtCB->length = hdr.length; 
+                *(unsigned *)0120264 = hdr.start;   /* See 00001-01.32.03 page 64: 0264=start, 0266=length */
+                *(unsigned *)0120266 = hdr.length;  /* fields of emtCB should be intact */
             } else {
                 puts(c ? M_OK : M_FAIL);
                 newline();

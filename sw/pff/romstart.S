@@ -316,7 +316,8 @@ _scrrest:
 
 _pause:
     mov $0177777, r0
-1:  tst $0
+1:  mov $040, r1
+    sob r1, .
     sob r0, 1b
     rts pc
 
