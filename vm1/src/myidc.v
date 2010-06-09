@@ -141,7 +141,8 @@ module idc (
                 idc_opc[15:3] == 'o 00001 ||    // opcodes 000010 through 000037 unused on VM1
                 idc_opc[15:3] == 'o 00002 ||
                 idc_opc[15:3] == 'o 00003 ||
-                idc_opc[15:12] == 'o17;
+                idc_opc[15:12] == 'o17 ||                       // 017xxxx don't exist
+                ((idc_opc[15:12] == 'o07) && !(dexor | dsob));  // 074xxxx: EXOR, 077xxxx: SOB, others are not implemented
                 
 
 
