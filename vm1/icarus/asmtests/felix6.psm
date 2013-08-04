@@ -1,0 +1,23 @@
+start = 100000
+
+start:
+
+ccc
+mov #1760,r4
+mov #0,r0
+mov #111064,r1
+mov #53170,r2
+mov #115274,r3
+mov r0,(r4)+
+mov r1,(r4)+
+mov r2,(r4)+
+mov r3,(r4)+
+rol r1
+rol r2
+rol r3
+ror -(r4)
+ror -(r4)
+ror -(r4)
+ror -(r4)
+mov r4,@#1740
+halt

@@ -1,0 +1,75 @@
+	start = 100000
+
+    movb #1,r3
+    ccc
+    rorb r3
+    rolb r3
+    bne good
+    halt
+
+good: 
+    ror r3
+    ror r3
+    bmi good1
+    halt
+good1: 
+    rol r3
+    rol r3
+    bpl good2
+    halt
+
+good2:
+    mov #0,r3
+    ccc
+    sec
+    sbc r3
+    nop
+
+    mov #100000,r3
+    ccc
+    sec
+    sbc r3
+    nop
+
+    
+
+
+asrtest:
+    mov #100000, r3
+    asr r3
+    asr r3
+    nop
+
+    mov #100200, r3
+    asrb r3
+    asrb r3
+    nop
+
+
+
+asr2:	
+	mov #177777,r3
+	ccc
+	sec
+	asrb 	r3
+
+
+	mov #177177,r3
+	ccc
+	sec
+	asrb 	r3
+
+	mov #177777,r3
+	ccc
+	sec
+	asr 	r3
+
+
+	mov #077777,r3
+	ccc
+	sec
+	asr 	r3
+
+
+
+    halt

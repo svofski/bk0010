@@ -1,0 +1,22 @@
+    start  = 100000
+start:
+ccc
+mov #2002,r0
+mov #1,r2
+mov #11,r1
+loop2:
+ror r2
+mov r2,-(r0)
+dec r1
+bne loop2
+ccc
+mov #2000,r0
+mov #11,r1
+mov #1,(r0)
+inc r0
+inc r0
+loop1:
+ror -(r0)
+dec r1
+bne loop1
+halt
